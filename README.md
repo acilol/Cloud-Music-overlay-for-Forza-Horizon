@@ -1,77 +1,71 @@
-# 网易云悬浮窗 v3.1.1
+# HORIZON · 网易云悬浮窗
 
-一个 Windows 桌面工具：游戏中自定义快捷键转发网易云切歌，并显示透明悬浮窗（封面 + 歌名 + 歌手）。
+Windows 游戏音乐悬浮窗：在游戏画面上显示封面、歌名、歌手和同步歌词，用键盘、手柄或方向盘切歌。支持网易云音乐和提供系统媒体会话（SMTC）的播放器。
 
-支持 **键盘**、**Xbox 手柄**、**DualSense（DS5）手柄** 和 **方向盘等 HID/DirectInput 外设** 快捷键。
+当前 `main` 已包含新版桌面界面、设置预览、多显示器定位和悬浮窗渲染修复。程序版本号仍为 `3.1.1`；本仓库尚未发布包含本次改版的安装包。要体验当前代码，请参照下方的[开发运行](#开发运行)或[自行打包](#自行打包)。
 
-## 截图
+## 界面预览
 
-![主界面](Assets/Icons/screenshot_main.jpg)
-![游戏中悬浮窗效果](Assets/Icons/screenshot_overlay.png)
-![Cover Flow 示例](Snipaste_2026-06-05_13-09-49.jpg)
+![新版正在播放页面](Assets/Screenshots/now-playing.png)
+
+| 悬浮窗设置：选择显示器、调整位置和大小 | 主题设置：颜色、字号与浮窗预览 |
+| --- | --- |
+| ![悬浮窗设置页面](Assets/Screenshots/overlay-settings.png) | ![主题设置页面](Assets/Screenshots/theme-settings.png) |
+
+<details>
+<summary>查看 Cover Flow 悬浮窗效果</summary>
+
+![Cover Flow 悬浮窗预览](Assets/Screenshots/cover-flow.png)
+
+</details>
+
+截图使用演示曲目和[预览素材](Assets/Artwork/README.md)；实际封面由所选播放器提供。
 
 ## 功能
 
-- **透明悬浮窗**：点击穿透、置顶、不抢焦点、全屏任意位置，并增强了对部分游戏窗口遮挡的兼容性
+- **透明悬浮窗**：点击穿透、置顶、不抢焦点；支持常驻、暂停时隐藏和 Cover Flow 效果
+- **新版桌面界面**：正在播放页显示封面、播放进度、歌词和控制按钮，底部迷你播放器可跨页面操作
 - **双数据源**：
   - **网易云专用渠道（默认）**：专门给网易云音乐使用
   - **SMTC 系统媒体会话**：用于 QQ 音乐、Apple Music、酷狗等提供系统时间轴的播放器
 - **网易云封面适配**：优先从网易云本地播放数据定位当前歌曲，再从网易云官方接口获取并缓存封面
-- **歌名/歌手颜色自定义**：5 种预设色块 + 透明度滑块
-- **悬浮窗始终显示**：切歌时淡入淡出交叉过渡，不中断显示
+- **主题与文字自定义**：界面强调色，以及歌名、歌手、歌词的颜色、字号和不透明度；设置页可预览浮窗
+- **切歌过渡**：常驻模式下交叉淡入淡出，不中断显示
 - **键盘快捷键映射**：自定义应用快捷键 -> 转发网易云快捷键
 - **手柄 / 方向盘外设快捷键**：支持组合键（如 `LB+Left`、`L1+Left` 或 `Button1+Button2`），独立开关
-- **悬浮窗自定义**：水平/垂直位置（0-100%）、缩放，可保存
+- **悬浮窗定位**：选择目标显示器，用滑块或直接拖拽调整位置，设置缩放并保存
 - **设置持久化**：保存在 `%LOCALAPPDATA%\HorizonRadioOverlay\overlay-settings.json`
-- **淡入淡出动画**：歌曲切换时自动弹出和隐藏
 - **托盘最小化**：关闭时最小化到系统托盘，双击恢复
 - **开机自启**：注册表方式，`--autostart` 最小化启动
-- **检查更新**：自动检测 GitHub Releases 新版本
+- **检查更新**：自动检测上游 GitHub Releases 新版本
+- **手机遥控**：同一局域网内通过手机网页控制播放和悬浮窗
 - **实时歌词**：
   - `网易云窗口标题`：可选只读内存时间轴（实验功能）同步 seek；不可用或关闭时自动退回本地计时
   - `SMTC`：按系统媒体会话提供的歌名 / 歌手 / 时间轴进行查词与同步
 - **后台播放快照**：播放器读取与界面刷新解耦，连续失败自动降级和重试
-- **Cover Flow 模式**：3D 封面轮播效果（设置中开启）
 
-## 下载
+## 获取程序
 
-前往 [Releases](https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon/releases) 下载最新版本。
+本仓库目前没有对应新版界面的 Release。可从本仓库 `main` 分支自行构建；[上游 Releases](https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon/releases) 提供的是上游已发布版本，不包含这里展示的本次界面改版。项目历史更新见 [CHANGELOG.md](CHANGELOG.md)。
 
-更新内容见 [CHANGELOG.md](CHANGELOG.md)。
-
-提供三个架构：
+构建时可选择三个架构：
 - `win-x64`：绝大多数 PC 选择此版本
 - `win-x86`：32 位系统
 - `win-arm64`：ARM 设备（如 Surface Pro X）
 
 > 网易云只读内存时间轴仅在 64 位进程中启用；`win-x86` 会自动使用本地歌词计时。
 
-发布包为**自包含单文件版**，免安装 .NET 运行时。
+下方打包命令生成**自包含单文件版**，运行时无需另装 .NET。
 
 ### 运行方法
 
-**方法一：直接运行**
-1. 下载 `HorizonRadioOverlay.exe`
-2. 右键点击 `HorizonRadioOverlay.exe` -> 属性 -> 勾选“解除锁定” -> 确定
-3. 双击运行
-
-**方法二：SmartScreen 提示时**
-1. 双击 `HorizonRadioOverlay.exe`
-2. 出现“Windows 已保护你的电脑”提示
-3. 点击“更多信息”
-4. 点击“仍要运行”
-
-**方法三：右键运行**
-1. 右键点击 `HorizonRadioOverlay.exe`
-2. 选择“以管理员身份运行”
-
-> 本程序未购买代码签名证书，所以 Windows 会显示安全警告。程序本身是安全的，源代码完全开源。
+自行打包后双击 `HorizonRadioOverlay.exe`。如果 Windows 标记了下载文件，可在文件“属性”中勾选“解除锁定”；遇到 SmartScreen 提示时，请先核对文件来源，再选择是否继续运行。
 
 ## 运行环境
 
 - Windows 10 1809（10.0.17763）及以上 / Windows 11
 - 网易云音乐桌面版（仅网易云专用渠道需要，进程名：`cloudmusic`）
-- （手柄功能）Xbox 兼容手柄或 Sony DualSense（DS5）
+- （手柄功能）Xbox 兼容手柄或 Sony DualSense（DS5）；方向盘需支持 HID/DirectInput
 
 > 说明 1：`SMTC` 模式依赖较新的 Windows 媒体会话能力。低于 Windows 10 1809 的环境会自动回退为网易云窗口标题模式。
 >
@@ -81,24 +75,23 @@
 
 ## 使用说明
 
-### 第一步：设置网易云快捷键
+### 第一步：使用网易云时设置快捷键
 
-在网易云音乐中设置你想要的全局快捷键（如 `Ctrl+Alt+Left` 上一首、`Ctrl+Alt+Right` 下一首、`Ctrl+Alt+P` 播放/暂停）。
+在网易云音乐中设置全局快捷键（如 `Ctrl+Alt+Left` 上一首、`Ctrl+Alt+Right` 下一首、`Ctrl+Alt+P` 播放/暂停）。只使用 SMTC 播放器时可跳过此步。
 
-### 第二步：打开本工具
+### 第二步：选择播放器并设置浮窗
 
-- **数据来源**：
-  - 选择 **网易云窗口标题**：仅用于网易云音乐
-  - 选择 **SMTC**：用于 QQ 音乐、Apple Music 等支持系统媒体会话的播放器
-- **快捷键映射**：左侧填写游戏中按的键，右侧填写网易云快捷键
-- **显示颜色**：点击色块选择歌名/歌手颜色，拖动滑块调整透明度
+- 在**悬浮窗设置**中选择“网易云音乐”或“系统媒体（SMTC）”，并选定显示器、位置、缩放和显示行为。也可点击“调整位置”，直接拖拽浮窗。
+- 在**主题设置**中调整界面强调色和浮窗文字的颜色、字号、不透明度，右侧可即时预览。
+- 使用网易云时，在**快捷键设置**中左侧填写游戏内按键，右侧填写网易云快捷键；手柄和方向盘按键可在对应区域启用。
+- 点击页面右上角的“保存”以持久化设置。
 - **歌词说明**：
   - `网易云窗口标题`：默认启用只读内存时间轴实验功能，可跟随 seek；读取失败时自动降级为本地计时，可在设置中关闭
   - `SMTC`：歌词滚动同步依赖 `SMTC` 时间轴
 
 ### 第三步：启动游戏
 
-悬浮窗会在歌曲切换时自动弹出，5 秒后淡出。勾选“悬浮窗始终生效”可保持常驻。
+悬浮窗会在歌曲切换时自动弹出，默认 5 秒后淡出。勾选“始终显示”可保持常驻。DirectX 独占全屏游戏可能无法显示普通桌面悬浮窗，建议使用无边框窗口模式。
 
 ### 直播软件捕获悬浮窗
 
@@ -123,6 +116,8 @@
 
 ## 开发运行
 
+需要 Windows 和 .NET 10 SDK。在仓库根目录运行：
+
 ```powershell
 .\dotnet10.cmd run
 ```
@@ -133,14 +128,13 @@
 .\dotnet10.cmd test tests\HorizonRadioOverlay.Tests\HorizonRadioOverlay.Tests.csproj -c Release
 ```
 
-## 打包发布
+## 自行打包
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugSymbols=false -p:DebugType=None -o .\publish\HorizonRadioOverlay_v3.1.1_win-x64
+.\dotnet10.cmd publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugSymbols=false -p:DebugType=None -o .\publish\HorizonRadioOverlay_main_win-x64
 ```
 
-发布结果在 `publish\HorizonRadioOverlay_v3.1.1_win-x64\HorizonRadioOverlay.exe`。
-默认按单文件分发，直接分发这个 exe 即可。
+生成的程序位于 `publish\HorizonRadioOverlay_main_win-x64\HorizonRadioOverlay.exe`。如需其他架构，把命令中的 `win-x64` 改为 `win-x86` 或 `win-arm64`。
 
 ## 常见问题
 
