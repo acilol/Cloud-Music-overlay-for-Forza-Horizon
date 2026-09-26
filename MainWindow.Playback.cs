@@ -140,6 +140,12 @@ public partial class MainWindow
         bool shouldCheckPauseVisibility = _activeSettings.HideOverlayWhenPaused && isSmtcSource;
 
         PlaybackSnapshot snapshot = _playbackSession.LatestSnapshot;
+        if (_lastReportedIsPlaying != snapshot.IsPlaying)
+        {
+            _lastReportedIsPlaying = snapshot.IsPlaying;
+            _ = Dispatcher.BeginInvoke(() => _nowPlayingViewModel.IsPlaying = snapshot.IsPlaying == true,
+                DispatcherPriority.Background);
+        }
         CrashReportService.UpdatePlaybackSnapshot(snapshot);
 
         if (snapshot.Health != _lastReportedHealth ||
@@ -157,6 +163,8 @@ public partial class MainWindow
             _lastConsumedTimelineVersion = snapshot.TimelineVersion;
             if (snapshot.Position is { } position)
             {
+                _ = Dispatcher.BeginInvoke(() => _nowPlayingViewModel.PositionSeconds = position.TotalSeconds,
+                    DispatcherPriority.Background);
                 bool isPlaying = snapshot.IsPlaying ?? true;
                 if (shouldCheckPauseVisibility)
                 {
@@ -209,6 +217,7 @@ public partial class MainWindow
                 _ = Dispatcher.BeginInvoke(() =>
                 {
                     _overlayWindow.SetLyrics(earlyLine);
+                    _nowPlayingViewModel.LyricsPreview = earlyLine;
                     SetTextIfChanged(LyricsPreviewText, earlyLine);
                 }, DispatcherPriority.Background);
             }
@@ -310,6 +319,9 @@ public partial class MainWindow
         SetTextIfChanged(ConnectionStatusSubText, detail);
         _nowPlayingViewModel.ConnectionStatus = status;
         _nowPlayingViewModel.ConnectionStatusDetail = detail;
+        _nowPlayingViewModel.SourceLabel = useSmtc ? "系统媒体" : "网易云音乐";
+        SidebarConnectionStateText.Text = status;
+        SidebarConnectionSubText.Text = _nowPlayingViewModel.SourceLabel;
     }
 
     private async Task<bool> ExecutePlaybackCommandAsync(PlaybackCommand command, string displayName)
@@ -451,6 +463,9 @@ public partial class MainWindow
 
             if (track == null)
             {
+                _nowPlayingViewModel.PositionSeconds = 0;
+                _nowPlayingViewModel.DurationSeconds = 0;
+                _nowPlayingViewModel.PreviousLyric = string.Empty;
                 _smtcCoverRefreshCts?.Cancel();
                 _smtcCoverRefreshCts = null;
                 lock (_lyricGate)
@@ -499,6 +514,7 @@ public partial class MainWindow
             string currentTrackKey = useSmtc
                 ? TrackIdentity.BuildTrackKey(track, includeSourceAppId: true)
                 : TrackIdentity.BuildNeteaseTrackKey(track);
+            _nowPlayingViewModel.DurationSeconds = Math.Max(0, track.DurationSeconds);
             bool changed = !string.Equals(_lastTrackKey, currentTrackKey, StringComparison.Ordinal);
             _lastTrackKey = currentTrackKey;
             bool shouldDelayImmediateSmtcCover = useSmtc
@@ -815,7 +831,7 @@ public partial class MainWindow
     {
         if (!string.Equals(textBlock.Text, value, StringComparison.Ordinal))
         {
-            textBlock.Text = value;
+            textBlock.SetCurrentValue(TextBlock.TextProperty, value);
         }
     }
 

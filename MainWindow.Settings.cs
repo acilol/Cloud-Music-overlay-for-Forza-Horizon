@@ -20,6 +20,7 @@ public partial class MainWindow
 {
     private void InitializeOverlayControls(OverlaySettings settings)
     {
+        bool wasInitializing = _isInitializingOverlayControls;
         _isInitializingOverlayControls = true;
         try
         {
@@ -35,7 +36,7 @@ public partial class MainWindow
         }
         finally
         {
-            _isInitializingOverlayControls = false;
+            _isInitializingOverlayControls = wasInitializing;
         }
     }
 
@@ -186,14 +187,9 @@ public partial class MainWindow
         DrawingVisual visual = new();
         using (DrawingContext dc = visual.RenderOpen())
         {
-            var background = new LinearGradientBrush(
-                Color.FromRgb(16, 20, 24),
-                accent,
-                new Point(0, 0),
-                new Point(1, 1));
-            dc.DrawRectangle(background, null, new Rect(0, 0, size, size));
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(58, 255, 255, 255)), null, new Point(56, 46), 86, 54);
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(44, 0, 0, 0)), null, new Point(204, 196), 92, 82);
+            var artwork = new BitmapImage(new Uri("pack://application:,,,/HorizonRadioOverlay;component/Assets/Artwork/preview-forest.jpg"));
+            dc.DrawImage(artwork, new Rect(0, 0, size, size));
+            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(38, accent.R, accent.G, accent.B)), null, new Rect(0, 0, size, size));
             dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(58, 0, 0, 0)), null, new Rect(0, 168, size, 88));
 
             var titleText = new FormattedText(
@@ -346,6 +342,7 @@ public partial class MainWindow
             LeftPercent = _activeSettings.LeftPercent,
             TopPercent = _activeSettings.TopPercent,
             Scale = _activeSettings.Scale,
+            MonitorDeviceName = _activeSettings.MonitorDeviceName,
             AppPrevHotkey = _activeSettings.AppPrevHotkey,
             AppNextHotkey = _activeSettings.AppNextHotkey,
             AppToggleHotkey = _activeSettings.AppToggleHotkey,
@@ -396,6 +393,18 @@ public partial class MainWindow
         UpdateRemoteControlPage();
     }
 
+    private void ApplyOverlayPlacementFromControls()
+    {
+        _activeSettings.LeftPercent = Math.Clamp(_floatingSettingsViewModel.HorizontalPercent / 100.0, 0, 1);
+        _activeSettings.TopPercent = Math.Clamp(_floatingSettingsViewModel.BottomOffsetPercent / 100.0, 0, 1);
+        _activeSettings.Scale = Math.Clamp(_floatingSettingsViewModel.ScalePercent / 100.0, 0.8, 1.8);
+        _activeSettings.MonitorDeviceName = _floatingSettingsViewModel.SelectedMonitor?.DeviceName ?? string.Empty;
+        _overlayWindow.ApplySettings(_activeSettings);
+        UpdateOverlayControlLabels();
+        _placementSaveTimer.Stop();
+        _placementSaveTimer.Start();
+    }
+
     private void UpdatePlaybackSessionConfiguration()
     {
         bool supportsTimeline = _playbackCoordinator
@@ -429,11 +438,12 @@ public partial class MainWindow
 
     private void ApplyDisplayColors(OverlaySettings settings)
     {
+        ApplyAccentPalette(settings.AccentColor);
         if (_nowPlayingPageView != null)
         {
-            _nowPlayingPageView.CurrentTitle.ClearValue(TextBlock.ForegroundProperty);
+            _nowPlayingPageView.CurrentTitle.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
             _nowPlayingPageView.CurrentTitle.ClearValue(UIElement.OpacityProperty);
-            _nowPlayingPageView.CurrentArtist.ClearValue(TextBlock.ForegroundProperty);
+            _nowPlayingPageView.CurrentArtist.SetResourceReference(TextBlock.ForegroundProperty, "SubtleTextBrush");
             _nowPlayingPageView.CurrentArtist.ClearValue(UIElement.OpacityProperty);
         }
 

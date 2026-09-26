@@ -63,7 +63,9 @@ public sealed class OverlayTextLayoutTests
             string element = xaml[start..end];
             Assert.Contains("TextWrapping=\"NoWrap\"", element);
             Assert.Contains("TextTrimming=\"None\"", element);
-            Assert.Contains("HorizontalAlignment=\"Center\"", element);
+            Assert.Contains(name is "CurrentTitle" or "CurrentArtist"
+                ? "HorizontalAlignment=\"Left\""
+                : "HorizontalAlignment=\"Center\"", element);
         }
     }
 

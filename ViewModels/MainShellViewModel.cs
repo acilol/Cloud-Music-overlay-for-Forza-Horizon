@@ -15,9 +15,9 @@ public sealed class MainShellViewModel : INotifyPropertyChanged
         [
             new NavigationItem { Key = "NowPlaying", Title = UiText.NavNowPlaying, IconGlyph = "\uE189", Description = UiText.NavNowPlayingDesc },
             new NavigationItem { Key = "FloatingSettings", Title = UiText.NavFloatingSettings, IconGlyph = "\uE718", Description = UiText.NavFloatingSettingsDesc },
+            new NavigationItem { Key = "Theme", Title = UiText.NavTheme, IconGlyph = "\uE790", Description = UiText.NavThemeDesc },
             new NavigationItem { Key = "Hotkeys", Title = UiText.NavHotkeys, IconGlyph = "\uE765", Description = UiText.NavHotkeysDesc },
             new NavigationItem { Key = "RemoteControl", Title = UiText.NavRemoteControl, IconGlyph = "\uE8EA", Description = UiText.NavRemoteControlDesc },
-            new NavigationItem { Key = "Theme", Title = UiText.NavTheme, IconGlyph = "\uE790", Description = UiText.NavThemeDesc },
             new NavigationItem { Key = "Logs", Title = UiText.NavLogs, IconGlyph = "\uE7BA", Description = UiText.NavLogsDesc },
             new NavigationItem { Key = "About", Title = UiText.NavAbout, IconGlyph = "\uE946", Description = UiText.NavAboutDesc }
         ];
@@ -41,12 +41,16 @@ public sealed class MainShellViewModel : INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(CurrentPageTitle));
             OnPropertyChanged(nameof(CurrentPageDescription));
+            OnPropertyChanged(nameof(ShowSettingsActions));
+            OnPropertyChanged(nameof(ShowOverlayPreview));
         }
     }
 
     public string CurrentPageTitle => SelectedItem?.Title ?? UiText.AppTitle;
 
     public string CurrentPageDescription => SelectedItem?.Description ?? string.Empty;
+    public bool ShowSettingsActions => SelectedItem?.Key is "FloatingSettings" or "Theme" or "Hotkeys" or "RemoteControl";
+    public bool ShowOverlayPreview => SelectedItem?.Key is "NowPlaying" or "FloatingSettings" or "Theme";
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

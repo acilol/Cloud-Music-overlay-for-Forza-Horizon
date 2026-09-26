@@ -12,11 +12,12 @@
         ShowInTaskbar="False"
         ShowActivated="False"
         Topmost="True"
+        WindowStartupLocation="Manual"
         Focusable="False"
-        FontFamily="pack://application:,,,/Assets/Fonts/#MiSans Demibold">
+        FontFamily="pack://application:,,,/HorizonRadioOverlay;component/Assets/Fonts/#MiSans Demibold">
     <Window.Resources>
-        <DropShadowEffect x:Key="TextGlow" Color="#0B1017" BlurRadius="14" ShadowDepth="0" Opacity="0.95" />
-        <DropShadowEffect x:Key="CoverShadow" Color="#091019" BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.55" />
+        <DropShadowEffect x:Key="TextGlow" Color="#05080B" BlurRadius="5" ShadowDepth="2" Direction="270" Opacity="1" />
+        <DropShadowEffect x:Key="CoverShadow" Color="#091019" BlurRadius="12" ShadowDepth="3" Direction="270" Opacity="0.42" />
     </Window.Resources>
 
     <Viewbox Stretch="Fill">
@@ -26,7 +27,7 @@
             </Grid.RenderTransform>
 
             <Grid.RowDefinitions>
-                <RowDefinition x:Name="CoverRow" Height="106" />
+                <RowDefinition x:Name="CoverRow" Height="100" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -50,36 +51,39 @@
             <Border Name="CoverFrame"
                     Width="96"
                     Height="96"
-                    CornerRadius="4"
+                    CornerRadius="12"
                     ClipToBounds="True"
-                    Background="#22000000"
-                    BorderThickness="1"
-                    BorderBrush="#66E6EEF7"
+                    Background="Transparent"
+                    BorderThickness="0"
                     VerticalAlignment="Top"
                     HorizontalAlignment="Center"
                     Margin="0,0,0,4"
                     Effect="{StaticResource CoverShadow}">
-                <Image Name="CoverImage" Stretch="UniformToFill" />
+                <Image Name="CoverImage" Stretch="UniformToFill">
+                    <Image.Clip>
+                        <RectangleGeometry Rect="0,0,96,96" RadiusX="12" RadiusY="12" />
+                    </Image.Clip>
+                </Image>
             </Border>
 
             <Grid Name="InfoPanel"
                   Grid.Row="1"
                   Width="188"
-                  Height="80"
-                  Margin="0,4,0,0"
+                  Height="70"
+                  Margin="0"
                   VerticalAlignment="Top"
                   HorizontalAlignment="Center">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="42" />
-                    <RowDefinition Height="22" />
-                    <RowDefinition Height="18" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Viewbox Grid.Row="0" Width="188" Height="42" Stretch="Uniform" StretchDirection="DownOnly">
+                <Viewbox x:Name="TitleContainer" Grid.Row="0" Width="188" Height="28" Stretch="Uniform" StretchDirection="DownOnly">
                     <TextBlock Name="TitleText"
                                FontSize="19"
-                               FontWeight="Bold"
-                               FontStretch="Expanded"
+                               FontWeight="SemiBold"
+                               FontStretch="Normal"
                                TextWrapping="NoWrap"
                                TextTrimming="None"
                                TextAlignment="Center"
@@ -88,10 +92,11 @@
                                Effect="{StaticResource TextGlow}" />
                 </Viewbox>
 
-                <Viewbox Grid.Row="1" Width="188" Height="22" Stretch="Uniform" StretchDirection="DownOnly">
+                <Viewbox x:Name="ArtistContainer" Grid.Row="1" Width="188" Height="23" Stretch="Uniform" StretchDirection="DownOnly">
                     <TextBlock Name="ArtistText"
                                FontSize="14"
-                               FontStretch="Expanded"
+                               FontWeight="SemiBold"
+                               FontStretch="Normal"
                                TextWrapping="NoWrap"
                                TextTrimming="None"
                                TextAlignment="Center"

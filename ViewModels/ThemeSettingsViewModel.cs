@@ -10,6 +10,11 @@ namespace HorizonRadioOverlay.ViewModels;
 public sealed partial class ThemeSettingsViewModel : ObservableObject
 {
     [ObservableProperty]
+    private string _accentColor = "#D7FF3F";
+
+    partial void OnAccentColorChanged(string value) => NotifySettingsChanged();
+
+    [ObservableProperty]
     private string _titleColor = "#FFFFFF";
 
     [ObservableProperty]
@@ -264,6 +269,7 @@ public sealed partial class ThemeSettingsViewModel : ObservableObject
         try
         {
             TitleColor = settings.TitleColor;
+            AccentColor = settings.AccentColor;
             ArtistColor = settings.ArtistColor;
             LyricsColor = settings.LyricsColor;
             TitleOpacity = settings.TitleOpacity * 100.0;
@@ -289,6 +295,7 @@ public sealed partial class ThemeSettingsViewModel : ObservableObject
     public void ApplyTo(OverlaySettings settings)
     {
         settings.TitleColor = TitleColor;
+        settings.AccentColor = AccentColor;
         settings.ArtistColor = ArtistColor;
         settings.LyricsColor = LyricsColor;
         settings.TitleOpacity = TitleOpacityRatio;

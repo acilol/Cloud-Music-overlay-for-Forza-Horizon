@@ -33,6 +33,7 @@
   <ItemGroup>
     <Resource Include="Assets\Fonts\MiSans-Demibold.ttf" />
     <Resource Include="Assets\Icons\icons8-github-50.png" />
+    <Resource Include="Assets\Artwork\preview-forest.jpg" />
     <Resource Include="icon.ico" />
   </ItemGroup>
 

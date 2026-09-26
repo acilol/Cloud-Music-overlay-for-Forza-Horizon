@@ -3,13 +3,15 @@ namespace HorizonRadioOverlay.Models;
 public sealed class OverlaySettings
 {
     public int SchemaVersion { get; set; } = CurrentVersion;
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 4;
 
     public string TrackSource { get; set; } = Services.PlaybackSourceIds.Netease;
 
     public double LeftPercent { get; set; } = 0.0;
     public double TopPercent { get; set; } = 0.59;
     public double Scale { get; set; } = 1.0;
+    // Empty means follow the primary monitor. Preserve a disconnected monitor ID for reconnection.
+    public string MonitorDeviceName { get; set; } = string.Empty;
 
     public string AppPrevHotkey { get; set; } = "Ctrl+Shift+Left";
     public string AppNextHotkey { get; set; } = "Ctrl+Shift+Right";
@@ -37,11 +39,12 @@ public sealed class OverlaySettings
     public bool HideOverlayWhenPaused { get; set; } = false;
 
     public string TitleColor { get; set; } = "#FFFFFF";
-    public string ArtistColor { get; set; } = "#C0D0E0";
+    public string AccentColor { get; set; } = "#D7FF3F";
+    public string ArtistColor { get; set; } = "#EFF3F6";
     public double TitleOpacity { get; set; } = 1.0;
-    public double ArtistOpacity { get; set; } = 0.86;
+    public double ArtistOpacity { get; set; } = 0.96;
     public double TitleFontSize { get; set; } = 19.0;
-    public double ArtistFontSize { get; set; } = 14.0;
+    public double ArtistFontSize { get; set; } = 15.0;
     public double LyricsFontSize { get; set; } = 11.0;
     public bool DiagnosticMode { get; set; } = false;
     public bool EnableLyrics { get; set; } = true;

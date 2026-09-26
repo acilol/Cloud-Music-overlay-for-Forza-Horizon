@@ -16,13 +16,25 @@ public sealed class TrackSourceOption
     public override string ToString() => DisplayName;
 }
 
+public sealed class MonitorOption
+{
+    public required string DeviceName { get; init; }
+    public required string DisplayName { get; init; }
+
+    public override string ToString() => DisplayName;
+}
+
 [SupportedOSPlatform("windows")]
 public sealed partial class FloatingSettingsViewModel : ObservableObject
 {
     public ObservableCollection<TrackSourceOption> TrackSources { get; } = [];
+    public ObservableCollection<MonitorOption> Monitors { get; } = [];
 
     [ObservableProperty]
     private TrackSourceOption? _selectedTrackSource;
+
+    [ObservableProperty]
+    private MonitorOption? _selectedMonitor;
 
     [ObservableProperty]
     private double _horizontalPercent;
@@ -78,6 +90,7 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
     public string AdjustPositionButtonText => IsPositionAdjusting ? UiText.FinishDragReposition : UiText.StartDragReposition;
 
     public event Action? SettingsChanged;
+    public event Action? PlacementChanged;
     public event Action? TrackSourceChanged;
     public event Action? ToggleDragRepositionRequested;
 
@@ -94,13 +107,17 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
         ToggleDragRepositionRequested?.Invoke();
     }
 
-    public void UpdatePositionFromDrag(double leftPercent, double topPercent)
+    public void UpdatePositionFromDrag(double leftPercent, double topPercent, string monitorDeviceName)
     {
         _suppressNotification = true;
         try
         {
             HorizontalPercent = leftPercent * 100.0;
             BottomOffsetPercent = topPercent * 100.0;
+            if (SelectedMonitor?.DeviceName != monitorDeviceName)
+            {
+                RefreshMonitors(monitorDeviceName);
+            }
             OnPropertyChanged(nameof(HorizontalText));
             OnPropertyChanged(nameof(BottomOffsetText));
         }
@@ -113,20 +130,22 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
     partial void OnHorizontalPercentChanged(double value)
     {
         OnPropertyChanged(nameof(HorizontalText));
-        NotifySettingsChanged();
+        NotifyPlacementChanged();
     }
 
     partial void OnBottomOffsetPercentChanged(double value)
     {
         OnPropertyChanged(nameof(BottomOffsetText));
-        NotifySettingsChanged();
+        NotifyPlacementChanged();
     }
 
     partial void OnScalePercentChanged(double value)
     {
         OnPropertyChanged(nameof(ScaleText));
-        NotifySettingsChanged();
+        NotifyPlacementChanged();
     }
+
+    partial void OnSelectedMonitorChanged(MonitorOption? value) => NotifyPlacementChanged();
 
     partial void OnEnableLyricsChanged(bool value) => NotifySettingsChanged();
     partial void OnEnableNeteaseMemoryTimelineChanged(bool value) => NotifySettingsChanged();
@@ -150,6 +169,50 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
         SettingsChanged?.Invoke();
     }
 
+    private void NotifyPlacementChanged()
+    {
+        if (_suppressNotification) return;
+        PlacementChanged?.Invoke();
+    }
+
+    public void RefreshMonitors(string? selectedDeviceName = null)
+    {
+        bool wasSuppressed = _suppressNotification;
+        _suppressNotification = true;
+        try
+        {
+            string desiredName = selectedDeviceName ?? SelectedMonitor?.DeviceName ?? string.Empty;
+            Monitors.Clear();
+            Monitors.Add(new MonitorOption { DeviceName = string.Empty, DisplayName = "主显示器（自动）" });
+            int index = 1;
+            foreach (System.Windows.Forms.Screen screen in System.Windows.Forms.Screen.AllScreens)
+            {
+                Monitors.Add(new MonitorOption
+                {
+                    DeviceName = screen.DeviceName,
+                    DisplayName = $"显示器 {index++}  ·  {screen.Bounds.Width} × {screen.Bounds.Height}{(screen.Primary ? "  ·  主屏" : string.Empty)}"
+                });
+            }
+
+            MonitorOption? selected = Monitors.FirstOrDefault(m =>
+                string.Equals(m.DeviceName, desiredName, StringComparison.OrdinalIgnoreCase));
+            if (selected == null)
+            {
+                selected = new MonitorOption
+                {
+                    DeviceName = desiredName,
+                    DisplayName = $"未连接的显示器（临时显示在主屏）"
+                };
+                Monitors.Add(selected);
+            }
+            SelectedMonitor = selected;
+        }
+        finally
+        {
+            _suppressNotification = wasSuppressed;
+        }
+    }
+
     public void LoadFrom(OverlaySettings settings, PlaybackCoordinator coordinator)
     {
         _suppressNotification = true;
@@ -165,9 +228,9 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
                 var option = new TrackSourceOption
                 {
                     Id = source.Id,
-                    DisplayName = source.DisplayName,
+                    DisplayName = PlaybackCoordinator.IsSmtcSource(source.Id) ? "系统媒体（SMTC）" : "网易云音乐",
                     IsEnabled = source.IsAvailable,
-                    ToolTip = source.IsAvailable ? null : "当前系统不支持此播放器来源"
+                    ToolTip = source.IsAvailable ? source.DisplayName : "当前系统不支持此播放器来源"
                 };
                 TrackSources.Add(option);
 
@@ -178,6 +241,7 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
             }
 
             SelectedTrackSource = toSelect ?? TrackSources.FirstOrDefault();
+            RefreshMonitors(settings.MonitorDeviceName);
 
             HorizontalPercent = settings.LeftPercent * 100.0;
             BottomOffsetPercent = settings.TopPercent * 100.0;
@@ -224,6 +288,7 @@ public sealed partial class FloatingSettingsViewModel : ObservableObject
         settings.LeftPercent = HorizontalPercent / 100.0;
         settings.TopPercent = BottomOffsetPercent / 100.0;
         settings.Scale = ScalePercent / 100.0;
+        settings.MonitorDeviceName = SelectedMonitor?.DeviceName ?? string.Empty;
 
         settings.EnableLyrics = EnableLyrics;
         settings.EnableNeteaseMemoryTimeline = EnableNeteaseMemoryTimeline;

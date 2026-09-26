@@ -1,47 +1,19 @@
 <UserControl x:Class="HorizonRadioOverlay.Views.Pages.LogsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:HorizonRadioOverlay"
-             xmlns:viewmodels="clr-namespace:HorizonRadioOverlay.ViewModels"
-             d:DataContext="{d:DesignInstance Type=viewmodels:LogsViewModel}"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d"
-             Background="Transparent">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="16" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="16" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <TextBlock Grid.Row="0" Style="{StaticResource PageTitleTextStyle}" Text="{x:Static local:UiText.NavLogs}" />
-
-        <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}">
-            <DockPanel LastChildFill="False">
-                <TextBlock VerticalAlignment="Center" Style="{StaticResource BodyTextStyle}" Text="{x:Static local:UiText.LogsDesc}" />
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Button x:Name="OpenLogFileButton" Margin="0,0,12,0" Content="{x:Static local:UiText.OpenLogFile}" Command="{Binding OpenLogFileCommand}" />
-                    <Button x:Name="CopyLogButton" Margin="0,0,12,0" Content="{x:Static local:UiText.Copy}" Command="{Binding CopyLogCommand}" />
-                    <Button x:Name="ClearLogButton" Style="{StaticResource DangerButtonStyle}" Content="{x:Static local:UiText.Clear}" Command="{Binding ClearLogCommand}" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <Border Grid.Row="4" Style="{StaticResource CardBorderStyle}">
-            <ScrollViewer x:Name="LogScrollViewer"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          Background="#0F172A"
-                          Padding="16">
-                <TextBlock x:Name="LogTextBlock"
-                           Text="{Binding LogText}"
-                           TextWrapping="Wrap"
-                           Foreground="#E2E8F0"
-                           FontSize="13"
-                           FontFamily="Consolas" />
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="Transparent">
+    <Grid Margin="36,12,36,30" MaxWidth="1080">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="20" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="运行记录" Style="{StaticResource SectionTitleTextStyle}" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="OpenLogFileButton" Style="{StaticResource IconButtonStyle}" Command="{Binding OpenLogFileCommand}" ToolTip="打开日志文件" Margin="0,0,8,0"><TextBlock Text="&#xE8E5;" Style="{StaticResource IconTextStyle}" /></Button>
+                <Button x:Name="CopyLogButton" Style="{StaticResource IconButtonStyle}" Command="{Binding CopyLogCommand}" ToolTip="复制日志" Margin="0,0,8,0"><TextBlock Text="&#xE8C8;" Style="{StaticResource IconTextStyle}" /></Button>
+                <Button x:Name="ClearLogButton" Style="{StaticResource IconButtonStyle}" Foreground="{DynamicResource DangerBrush}" Command="{Binding ClearLogCommand}" ToolTip="清空日志"><TextBlock Text="&#xE74D;" Style="{StaticResource IconTextStyle}" /></Button>
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="2" Background="{DynamicResource MutedSurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="20" Padding="18">
+            <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <TextBlock x:Name="LogTextBlock" Text="{Binding LogText}" FontFamily="Consolas" FontSize="12" LineHeight="20" TextWrapping="Wrap" Foreground="{DynamicResource SubtleTextBrush}" />
             </ScrollViewer>
         </Border>
     </Grid>

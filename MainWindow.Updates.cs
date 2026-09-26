@@ -85,7 +85,7 @@ public partial class MainWindow
             System.Diagnostics.Process.Start(
                 new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon",
+                    FileName = AboutViewModel.ProjectUrl,
                     UseShellExecute = true
                 });
         }

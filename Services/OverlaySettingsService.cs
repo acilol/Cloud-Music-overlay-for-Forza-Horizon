@@ -164,6 +164,24 @@ public sealed class OverlaySettingsService
             version = 2;
         }
 
+        if (version < 3)
+        {
+            settings.MonitorDeviceName ??= string.Empty;
+            version = 3;
+        }
+
+        if (version < 4)
+        {
+            // Only update the previous defaults; keep any colors or sizes the user chose.
+            if (string.Equals(settings.ArtistColor, "#C0D0E0", StringComparison.OrdinalIgnoreCase))
+                settings.ArtistColor = "#EFF3F6";
+            if (Math.Abs(settings.ArtistOpacity - 0.86) < 0.001)
+                settings.ArtistOpacity = 0.96;
+            if (Math.Abs(settings.ArtistFontSize - 14.0) < 0.001)
+                settings.ArtistFontSize = 15.0;
+            version = 4;
+        }
+
         settings.SchemaVersion = version;
         return settings;
     }
@@ -179,6 +197,8 @@ public sealed class OverlaySettingsService
         settings.LeftPercent = Clamp(settings.LeftPercent, 0.0, 1.0);
         settings.TopPercent = Clamp(settings.TopPercent, 0.0, 1.0);
         settings.Scale = Clamp(settings.Scale, 0.8, 1.8);
+        settings.MonitorDeviceName ??= string.Empty;
+        if (!ColorUtils.TryParseHex(settings.AccentColor, out _)) settings.AccentColor = "#D7FF3F";
         settings.TitleFontSize = settings.TitleFontSize <= 0 ? 19.0 : Clamp(settings.TitleFontSize, 12.0, 32.0);
         settings.ArtistFontSize = settings.ArtistFontSize <= 0 ? 14.0 : Clamp(settings.ArtistFontSize, 10.0, 24.0);
         settings.LyricsFontSize = settings.LyricsFontSize <= 0 ? 11.0 : Clamp(settings.LyricsFontSize, 9.0, 20.0);

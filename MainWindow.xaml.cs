@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private volatile bool _isMainWindowVisible = true;
     private volatile bool _isOverlayVisible;
     private PlaybackDataHealth? _lastReportedHealth;
+    private bool? _lastReportedIsPlaying;
     private string? _lastReportedHealthError;
     private string? _lastReportedHealthSourceId;
     private readonly MainShellViewModel _shellViewModel;
@@ -53,12 +54,13 @@ public partial class MainWindow : Window
     private GlobalHotkeyService? _hotkeyService;
     private readonly ServiceLifecycle _lifecycle = new();
     private bool _isInitializingOverlayControls;
-    private OverlaySettings _activeSettings;
+    private OverlaySettings _activeSettings = new();
     private string _lastTrackKey = string.Empty;
     private string _lastDisplayTrackKey = string.Empty;
     private string _lastLyricsPreviewLine = string.Empty;
     private bool _pageMetaUpdateDirty;
     private readonly DispatcherTimer _pageMetaUpdateTimer;
+    private readonly DispatcherTimer _placementSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     private string _lastStatusText = string.Empty;
     private bool _lastStatusIsError;
     private byte[]? _lastPreviewCoverBytes;
@@ -259,6 +261,19 @@ public partial class MainWindow : Window
         _shellViewModel = shellViewModel;
         _nowPlayingViewModel = nowPlayingViewModel;
         _floatingSettingsViewModel = floatingSettingsViewModel;
+        _placementSaveTimer.Tick += (_, _) =>
+        {
+            _placementSaveTimer.Stop();
+            try
+            {
+                _overlaySettingsService.Save(_activeSettings);
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"状态：悬浮窗位置保存失败。{ex.Message}", true);
+            }
+        };
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += MainWindow_DisplaySettingsChanged;
         _themeSettingsViewModel = themeSettingsViewModel;
         _hotkeySettingsViewModel = hotkeySettingsViewModel;
         _remoteControlViewModel = remoteControlViewModel;
@@ -278,13 +293,16 @@ public partial class MainWindow : Window
 
         InitializeComponent();
         DataContext = _shellViewModel;
+        InitializeOverlayControls(loadedSettings);
         WireShellControls();
+        MiniPlayerPanel.DataContext = _nowPlayingViewModel;
         InitializeTrayIcon();
         ApplyAutoWindowSize();
         ApplyRuntimeFeatureAvailability();
 
         IsVisibleChanged += (_, _) => UpdateUiVisibilityCache();
         StateChanged += (_, _) => UpdateUiVisibilityCache();
+        StateChanged += (_, _) => ChromeMaximizeGlyph.Text = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
         _overlayWindow.IsVisibleChanged += (_, _) => UpdateUiVisibilityCache();
         UpdateUiVisibilityCache();
 

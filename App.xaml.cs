@@ -29,10 +29,13 @@ public partial class App : Application
         {
             base.OnStartup(e);
 
-            if (e.Args.Length >= 2 && string.Equals(e.Args[0], "--coverflow-test-shot", StringComparison.OrdinalIgnoreCase))
+            if (e.Args.Length >= 2 &&
+                (string.Equals(e.Args[0], "--coverflow-test-shot", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(e.Args[0], "--overlay-test-shot", StringComparison.OrdinalIgnoreCase)))
             {
                 ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                _ = RunCoverFlowScreenshotAsync(e.Args[1]);
+                bool useCoverFlow = string.Equals(e.Args[0], "--coverflow-test-shot", StringComparison.OrdinalIgnoreCase);
+                _ = RunOverlayScreenshotAsync(e.Args[1], useCoverFlow);
                 return;
             }
 
@@ -113,18 +116,18 @@ public partial class App : Application
         base.OnExit(e);
     }
 
-    private async Task RunCoverFlowScreenshotAsync(string outputPath)
+    private async Task RunOverlayScreenshotAsync(string outputPath, bool useCoverFlow)
     {
         try
         {
             OverlayWindow overlay = new();
             overlay.ApplySettings(new OverlaySettings
             {
-                EnableCoverWingEffect = true,
+                EnableCoverWingEffect = useCoverFlow,
                 AlwaysShowOverlay = true,
                 LeftPercent = 0.0,
                 TopPercent = 0.0,
-                Scale = 1.0
+                Scale = useCoverFlow ? 1.0 : 1.8
             });
 
             (string Name, string Artist, Color Color)[] tracks =
@@ -136,7 +139,7 @@ public partial class App : Application
                 ("回声", "测试歌手", Color.FromRgb(130, 88, 48))
             ];
 
-            foreach ((string name, string artist, Color color) in tracks)
+            foreach ((string name, string artist, Color color) in useCoverFlow ? tracks : tracks.Take(1))
             {
                 await overlay.ShowTrackAsync(new TrackInfo
                 {
@@ -176,14 +179,9 @@ public partial class App : Application
         DrawingVisual visual = new();
         using (DrawingContext dc = visual.RenderOpen())
         {
-            var background = new LinearGradientBrush(
-                Color.FromRgb(16, 20, 24),
-                accent,
-                new Point(0, 0),
-                new Point(1, 1));
-            dc.DrawRectangle(background, null, new Rect(0, 0, size, size));
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(58, 255, 255, 255)), null, new Point(56, 46), 86, 54);
-            dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(44, 0, 0, 0)), null, new Point(204, 196), 92, 82);
+            var artwork = new BitmapImage(new Uri("pack://application:,,,/HorizonRadioOverlay;component/Assets/Artwork/preview-forest.jpg"));
+            dc.DrawImage(artwork, new Rect(0, 0, size, size));
+            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(38, accent.R, accent.G, accent.B)), null, new Rect(0, 0, size, size));
             dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(58, 0, 0, 0)), null, new Rect(0, 168, size, 88));
 
             var titleText = new FormattedText(

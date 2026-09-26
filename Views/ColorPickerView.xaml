@@ -1,8 +1,8 @@
 <UserControl x:Class="HorizonRadioOverlay.Views.ColorPickerView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="320"
-             Background="#1E2433">
+             MinWidth="260"
+             Background="{DynamicResource SurfaceBrush}">
     <UserControl.Resources>
         <LinearGradientBrush x:Key="HueBarBrush" StartPoint="0,0.5" EndPoint="1,0.5">
             <GradientStop Color="#FF0000" Offset="0.00" />
@@ -16,7 +16,7 @@
         <DropShadowEffect x:Key="TextGlow" Color="#0B1017" BlurRadius="6" ShadowDepth="1" Opacity="0.9" />
     </UserControl.Resources>
 
-    <Border Padding="16" CornerRadius="12" Background="#1E2433" BorderBrush="#2E3852" BorderThickness="1">
+    <Border Padding="16" CornerRadius="6" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
         <StackPanel>
             <!-- 头部标题与 HEX 输入 -->
             <Grid Margin="0,0,0,12">
@@ -28,23 +28,23 @@
                            VerticalAlignment="Center"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#F1F5F9"
+                           Foreground="{DynamicResource TextBrush}"
                            Text="颜色调节" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="24" Height="24" CornerRadius="6" BorderThickness="1" BorderBrush="#475569" Margin="0,0,8,0">
+                    <Border Width="24" Height="24" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource BorderBrush}" Margin="0,0,8,0">
                         <Border.Background>
                             <SolidColorBrush x:Name="ColorPreviewSwatch" Color="#FFFFFF" />
                         </Border.Background>
                     </Border>
                     <TextBox x:Name="HexInputBox"
                              Width="80"
-                             Height="28"
+                             Height="30" MinHeight="30"
                              Padding="4,2"
-                             FontSize="12"
+                             FontSize="13"
                              FontFamily="Consolas"
-                             Foreground="#F8FAFC"
-                             Background="#0F172A"
-                             BorderBrush="#334155"
+                             Foreground="{DynamicResource TextBrush}"
+                             Background="{DynamicResource SurfaceBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}"
                              Text="#FFFFFF"
                              KeyDown="HexInputBox_KeyDown"
                              LostFocus="HexInputBox_LostFocus" />
@@ -54,10 +54,10 @@
             <!-- 2D 饱和度与明度调色盘 (Sat-Val Box) -->
             <Border x:Name="SatValBox"
                     Height="160"
-                    CornerRadius="8"
+                    CornerRadius="4"
                     ClipToBounds="True"
                     BorderThickness="1"
-                    BorderBrush="#334155"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     Cursor="Cross"
                     MouseDown="SatValBox_MouseDown"
                     MouseMove="SatValBox_MouseMove"
@@ -105,7 +105,7 @@
                         CornerRadius="9"
                         ClipToBounds="True"
                         BorderThickness="1"
-                        BorderBrush="#334155"
+                        BorderBrush="{DynamicResource BorderBrush}"
                         Background="{StaticResource HueBarBrush}"
                         Cursor="Hand"
                         MouseDown="HueBar_MouseDown"
@@ -126,13 +126,13 @@
 
             <!-- 快捷常用色块 -->
             <StackPanel Orientation="Horizontal" Margin="0,14,0,0" HorizontalAlignment="Center">
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#FFFFFF" />
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#D0E0F0" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#D0E0F0" />
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#F0E080" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#F0E080" />
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#90EE90" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#90EE90" />
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#FFB366" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#FFB366" />
-                <Border Width="24" Height="24" CornerRadius="12" Margin="0,0,10,0" Background="#3B82F6" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#3B82F6" />
-                <Border Width="24" Height="24" CornerRadius="12" Background="#F43F5E" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#F43F5E" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#FFFFFF" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#D0E0F0" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#D0E0F0" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#F0E080" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#F0E080" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#90EE90" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#90EE90" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#FFB366" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#FFB366" />
+                <Border Width="24" Height="24" CornerRadius="6" Margin="0,0,10,0" Background="#3B82F6" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#3B82F6" />
+                <Border Width="24" Height="24" CornerRadius="6" Background="#F43F5E" BorderBrush="#CBD5E1" BorderThickness="1" Cursor="Hand" MouseDown="QuickColor_MouseDown" Tag="#F43F5E" />
             </StackPanel>
         </StackPanel>
     </Border>

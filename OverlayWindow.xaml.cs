@@ -1,4 +1,5 @@
 using System.IO;
+using System.Runtime.Versioning;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,10 +16,13 @@ using HorizonRadioOverlay.Services;
 
 namespace HorizonRadioOverlay;
 
+[SupportedOSPlatform("windows")]
 public partial class OverlayWindow : Window
 {
     private const int GwlExstyle = -20;
     private const uint WdaNone = 0x00000000;
+    private const uint MoveWindowFlags = 0x0015; // NOSIZE | NOZORDER | NOACTIVATE
+    private const int WmDpiChanged = 0x02E0;
     private static readonly IntPtr HwndTopmost = new(-1);
     private static readonly IntPtr HwndNotTopmost = new(-2);
 
@@ -29,6 +33,7 @@ public partial class OverlayWindow : Window
     private readonly System.Windows.Threading.DispatcherTimer _topmostRefreshTimer;
     private DateTime _boostTopmostUntilUtc;
     private ImageBrush? _coverFlowCenterBrush;
+    private HwndSource? _windowSource;
     private byte[]? _displayedCoverBytes;
     private string _displayedTitle = string.Empty;
     private string _displayedArtist = string.Empty;
@@ -39,22 +44,21 @@ public partial class OverlayWindow : Window
     private const int CoverFlowCapacity = 9;
     private const double CenterCoverSize = 128;
     private const double CoverFlowCoverRowHeight = 236;
-    private const int TrackSwitchFadeOutMilliseconds = 750;
-    private const int TrackFadeInMilliseconds = 1200;
-    private const int AutoHideFadeOutMilliseconds = 1400;
-    private const int CoverFlowCenterFadeOutMilliseconds = 450;
-    private const int CoverFlowCenterFadeInMilliseconds = 650;
+    private const int TrackFadeInMilliseconds = 220;
+    private const int AutoHideFadeOutMilliseconds = 240;
+    private const int CoverFlowCenterFadeOutMilliseconds = 130;
+    private const int CoverFlowCenterFadeInMilliseconds = 180;
     private const int AnimationSettleDelayMilliseconds = 20;
 
     public OverlaySettings CurrentSettings { get; private set; } = new();
     public bool IsContentVisible => _isContentVisible;
     public bool IsInDragMode { get; private set; }
 
-    public event Action<double, double>? PositionDragged;
+    public event Action<double, double, string>? PositionDragged;
     public event Action? DragRepositionCompleted;
 
-    private Point _dragStartCursorPos;
-    private Point _dragStartWindowPos;
+    private System.Drawing.Point _dragStartCursorPos;
+    private System.Drawing.Point _dragStartWindowPos;
     private bool _isMouseDownOnOverlay;
 
     public OverlayWindow()
@@ -80,7 +84,15 @@ public partial class OverlayWindow : Window
             }
         };
         SourceInitialized += OverlayWindow_SourceInitialized;
-        Closed += (_, _) => StopTopmostRefresh();
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OverlayWindow_DisplaySettingsChanged;
+        Closed += (_, _) =>
+        {
+            StopTopmostRefresh();
+            Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OverlayWindow_DisplaySettingsChanged;
+            _hideCts?.Cancel();
+            _animQueue.Dispose();
+            _windowSource?.RemoveHook(WindowMessageHook);
+        };
         MouseLeftButtonDown += OverlayWindow_MouseLeftButtonDown;
         MouseLeftButtonUp += OverlayWindow_MouseLeftButtonUp;
         MouseMove += OverlayWindow_MouseMove;
@@ -108,6 +120,7 @@ public partial class OverlayWindow : Window
             LeftPercent = Clamp(settings.LeftPercent, 0.0, 1.0),
             TopPercent = Clamp(settings.TopPercent, 0.0, 1.0),
             Scale = Clamp(settings.Scale, 0.8, 1.8),
+            MonitorDeviceName = settings.MonitorDeviceName ?? string.Empty,
             TitleColor = settings.TitleColor,
             ArtistColor = settings.ArtistColor,
             TitleOpacity = Clamp(settings.TitleOpacity, 0.2, 1.0),
@@ -123,23 +136,30 @@ public partial class OverlayWindow : Window
         };
 
         double layoutWidth = CurrentSettings.EnableCoverWingEffect ? CoverFlowWidth : BaseWidth;
-        double layoutHeight = CurrentSettings.EnableCoverWingEffect ? CoverFlowHeight : BaseHeight;
+        double titleHeight = Math.Max(28, Math.Ceiling(CurrentSettings.TitleFontSize * 1.5) + 2);
+        double artistHeight = Math.Max(23, Math.Ceiling(CurrentSettings.ArtistFontSize * 1.5) + 2);
+        double lyricsHeight = Math.Max(18, Math.Ceiling(CurrentSettings.LyricsFontSize * 1.5) + 2);
+        double coverHeight = CurrentSettings.EnableCoverWingEffect ? CoverFlowCoverRowHeight : 100;
+        double infoHeight = titleHeight + artistHeight + lyricsHeight;
+        double layoutHeight = Math.Max(CurrentSettings.EnableCoverWingEffect ? CoverFlowHeight : BaseHeight,
+            coverHeight + infoHeight + 20);
         OverlayRoot.Width = layoutWidth;
         OverlayRoot.Height = layoutHeight;
-        CoverRow.Height = new GridLength(CurrentSettings.EnableCoverWingEffect ? CoverFlowCoverRowHeight : 106);
+        CoverRow.Height = new GridLength(coverHeight);
+        TitleContainer.Height = titleHeight;
+        ArtistContainer.Height = artistHeight;
+        LyricsContainer.Height = lyricsHeight;
+        InfoPanel.Height = infoHeight;
         CoverFlowViewport.Visibility = CurrentSettings.EnableCoverWingEffect ? Visibility.Visible : Visibility.Collapsed;
         CoverFrame.Visibility = CurrentSettings.EnableCoverWingEffect ? Visibility.Collapsed : Visibility.Visible;
         InfoPanel.Width = 188;
         InfoPanel.HorizontalAlignment = HorizontalAlignment.Center;
-        InfoPanel.Margin = new Thickness(0, 4, 0, 0);
+        InfoPanel.Margin = new Thickness(0, CurrentSettings.EnableCoverWingEffect ? 4 : 0, 0, 0);
 
         Width = layoutWidth * CurrentSettings.Scale;
         Height = layoutHeight * CurrentSettings.Scale;
 
-        double availableWidth = Math.Max(0, SystemParameters.PrimaryScreenWidth - Width);
-        double availableHeight = Math.Max(0, SystemParameters.PrimaryScreenHeight - Height);
-        Left = availableWidth * CurrentSettings.LeftPercent;
-        Top = availableHeight * CurrentSettings.TopPercent;
+        PositionOnSelectedMonitor();
 
         ApplyTextColors();
     }
@@ -195,6 +215,43 @@ public partial class OverlayWindow : Window
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint dwAffinity);
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeRect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out System.Drawing.Point point);
+
+    private void PositionOnSelectedMonitor()
+    {
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out NativeRect rect)) return;
+
+        var size = new System.Drawing.Size(rect.Right - rect.Left, rect.Bottom - rect.Top);
+        var screen = OverlayPlacement.ResolveScreen(CurrentSettings.MonitorDeviceName);
+        System.Drawing.Point target = OverlayPlacement.Position(
+            screen.Bounds, size, CurrentSettings.LeftPercent, CurrentSettings.TopPercent);
+        _ = SetWindowPos(hwnd, IntPtr.Zero, target.X, target.Y, 0, 0, MoveWindowFlags);
+    }
+
+    private void OverlayWindow_DisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.HasShutdownStarted)
+        {
+            Dispatcher.BeginInvoke(PositionOnSelectedMonitor);
+        }
+    }
+
     public Task ShowTrackAsync(TrackInfo track)
     {
         _animQueue.Enqueue(track);
@@ -203,6 +260,7 @@ public partial class OverlayWindow : Window
 
     private async Task OnAnimationRequest(TrackInfo track, long animId, CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
         _hideCts?.Cancel();
         _hideCts = new CancellationTokenSource();
 
@@ -234,50 +292,25 @@ public partial class OverlayWindow : Window
 
         bool transitionOnlyCenterCover = isCurrentlyVisible && CurrentSettings.EnableCoverWingEffect;
 
-        if (isCurrentlyVisible && !transitionOnlyCenterCover)
-        {
-            double currentOpacity = OverlayRoot.Opacity;
-            OverlayRoot.BeginAnimation(UIElement.OpacityProperty, null);
-            OverlayRoot.Opacity = currentOpacity;
-
-            if (currentOpacity > 0.01)
-            {
-                var fadeOut = new DoubleAnimation
-                {
-                    From = currentOpacity,
-                    To = 0,
-                    Duration = TimeSpan.FromMilliseconds(TrackSwitchFadeOutMilliseconds),
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
-                };
-                OverlayRoot.BeginAnimation(UIElement.OpacityProperty, fadeOut);
-                await Task.Delay(TrackSwitchFadeOutMilliseconds + AnimationSettleDelayMilliseconds, token);
-                if (token.IsCancellationRequested) return;
-            }
-        }
-
         if (!token.IsCancellationRequested)
         {
             if (!transitionOnlyCenterCover)
             {
                 OverlayRoot.BeginAnimation(UIElement.OpacityProperty, null);
-                OverlayRoot.Opacity = 0;
+                OverlayRoot.Opacity = isCurrentlyVisible ? 0.72 : 0;
             }
-
-            TitleText.Text = track.Name;
-            ArtistText.Text = track.Artist;
-            _displayedTitle = track.Name;
-            _displayedArtist = track.Artist;
-            _displayedCoverBytes = track.CoverBytes;
 
             ImageSource? coverImage = CreateCoverImage(track.CoverBytes);
             if (transitionOnlyCenterCover)
             {
-                await SetCoverFlowCoverWithAnimationAsync(coverImage, token);
+                await SetCoverFlowCoverWithAnimationAsync(track, coverImage, token);
             }
             else
             {
-                SetCover(coverImage);
+                ApplyTrackContent(track, coverImage);
             }
+
+            if (token.IsCancellationRequested) return;
 
             ApplyTextColors();
 
@@ -290,7 +323,7 @@ public partial class OverlayWindow : Window
             {
                 var fadeIn = new DoubleAnimation
                 {
-                    From = 0,
+                    From = isCurrentlyVisible ? 0.72 : 0,
                     To = 1,
                     Duration = TimeSpan.FromMilliseconds(TrackFadeInMilliseconds),
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
@@ -302,7 +335,7 @@ public partial class OverlayWindow : Window
             RootTransform.BeginAnimation(System.Windows.Media.TranslateTransform.YProperty, null);
             RootTransform.Y = 0;
 
-            if (!CurrentSettings.AlwaysShowOverlay)
+            if (!CurrentSettings.AlwaysShowOverlay && !IsInDragMode)
             {
                 ScheduleHide(_hideCts.Token);
             }
@@ -311,6 +344,7 @@ public partial class OverlayWindow : Window
 
     private async void ScheduleHide(CancellationToken token)
     {
+        if (IsInDragMode) return;
         try
         {
             await Task.Delay(TimeSpan.FromMilliseconds(5000), token);
@@ -347,7 +381,17 @@ public partial class OverlayWindow : Window
         UpdateCoverFlowAlbums(coverImage);
     }
 
-    private async Task SetCoverFlowCoverWithAnimationAsync(ImageSource? coverImage, CancellationToken token)
+    private void ApplyTrackContent(TrackInfo track, ImageSource? coverImage)
+    {
+        TitleText.Text = track.Name;
+        ArtistText.Text = track.Artist;
+        SetCover(coverImage);
+        _displayedTitle = track.Name;
+        _displayedArtist = track.Artist;
+        _displayedCoverBytes = track.CoverBytes;
+    }
+
+    private async Task SetCoverFlowCoverWithAnimationAsync(TrackInfo track, ImageSource? coverImage, CancellationToken token)
     {
         ImageBrush? currentCenterBrush = _coverFlowCenterBrush;
         bool hasCurrentCover = currentCenterBrush != null && currentCenterBrush.Opacity > 0.01;
@@ -366,7 +410,16 @@ public partial class OverlayWindow : Window
                 EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
             };
             currentCenterBrush.BeginAnimation(Brush.OpacityProperty, fadeOut);
-            await Task.Delay(CoverFlowCenterFadeOutMilliseconds + AnimationSettleDelayMilliseconds, token);
+            try
+            {
+                await Task.Delay(CoverFlowCenterFadeOutMilliseconds + AnimationSettleDelayMilliseconds, token);
+            }
+            catch (OperationCanceledException)
+            {
+                currentCenterBrush.BeginAnimation(Brush.OpacityProperty, null);
+                currentCenterBrush.Opacity = 1;
+                throw;
+            }
         }
 
         if (token.IsCancellationRequested)
@@ -374,8 +427,7 @@ public partial class OverlayWindow : Window
             return;
         }
 
-        CoverImage.Source = coverImage;
-        UpdateCoverFlowAlbums(coverImage);
+        ApplyTrackContent(track, coverImage);
 
         if (_coverFlowCenterBrush == null)
         {
@@ -734,10 +786,24 @@ public partial class OverlayWindow : Window
     private void OverlayWindow_SourceInitialized(object? sender, EventArgs e)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
+        _windowSource = HwndSource.FromHwnd(hwnd);
+        _windowSource?.AddHook(WindowMessageHook);
         int exStyle = GetWindowLong(hwnd, GwlExstyle);
-        SetWindowLong(hwnd, GwlExstyle, OverlayTopmostPolicy.ApplyExtendedStyle(exStyle));
+        SetWindowLong(hwnd, GwlExstyle, IsInDragMode
+            ? OverlayTopmostPolicy.ApplyInteractiveExtendedStyle(exStyle)
+            : OverlayTopmostPolicy.ApplyExtendedStyle(exStyle));
         _ = SetWindowDisplayAffinity(hwnd, WdaNone);
+        PositionOnSelectedMonitor();
         BoostTopmostRefresh();
+    }
+
+    private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (message == WmDpiChanged)
+        {
+            _ = Dispatcher.BeginInvoke(PositionOnSelectedMonitor, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+        return IntPtr.Zero;
     }
 
     public void UpdateCover(byte[]? coverBytes)
@@ -936,8 +1002,9 @@ public partial class OverlayWindow : Window
         if (!IsInDragMode) return;
 
         _isMouseDownOnOverlay = true;
-        _dragStartCursorPos = PointToScreen(e.GetPosition(this));
-        _dragStartWindowPos = new Point(Left, Top);
+        if (!GetCursorPos(out _dragStartCursorPos)) return;
+        if (!GetWindowRect(new WindowInteropHelper(this).Handle, out NativeRect rect)) return;
+        _dragStartWindowPos = new System.Drawing.Point(rect.Left, rect.Top);
         CaptureMouse();
     }
 
@@ -945,42 +1012,24 @@ public partial class OverlayWindow : Window
     {
         if (!IsInDragMode || !_isMouseDownOnOverlay || e.LeftButton != MouseButtonState.Pressed) return;
 
-        Point currentCursorPos = PointToScreen(e.GetPosition(this));
-        double deltaX = currentCursorPos.X - _dragStartCursorPos.X;
-        double deltaY = currentCursorPos.Y - _dragStartCursorPos.Y;
-
-        double targetLeft = _dragStartWindowPos.X + deltaX;
-        double targetTop = _dragStartWindowPos.Y + deltaY;
-
-        double screenWidth = SystemParameters.PrimaryScreenWidth;
-        double screenHeight = SystemParameters.PrimaryScreenHeight;
-        double maxLeft = Math.Max(0, screenWidth - Width);
-        double maxTop = Math.Max(0, screenHeight - Height);
-
-        // 磁吸吸附逻辑 (阈值 16px)
-        const double snapThreshold = 16.0;
-        if (Math.Abs(targetLeft) < snapThreshold) targetLeft = 0;
-        if (Math.Abs(targetLeft - maxLeft) < snapThreshold) targetLeft = maxLeft;
-        if (Math.Abs(targetLeft - maxLeft / 2.0) < snapThreshold) targetLeft = maxLeft / 2.0;
-
-        if (Math.Abs(targetTop) < snapThreshold) targetTop = 0;
-        if (Math.Abs(targetTop - maxTop) < snapThreshold) targetTop = maxTop;
-        if (Math.Abs(targetTop - maxTop / 2.0) < snapThreshold) targetTop = maxTop / 2.0;
-
-        targetLeft = Clamp(targetLeft, 0, maxLeft);
-        targetTop = Clamp(targetTop, 0, maxTop);
-
-        Left = targetLeft;
-        Top = targetTop;
-
-        double leftPercent = maxLeft > 0 ? Clamp(targetLeft / maxLeft, 0.0, 1.0) : 0.0;
-        double topPercent = maxTop > 0 ? Clamp(targetTop / maxTop, 0.0, 1.0) : 0.0;
+        if (!GetCursorPos(out System.Drawing.Point cursor)) return;
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        if (!GetWindowRect(hwnd, out NativeRect rect)) return;
+        var size = new System.Drawing.Size(rect.Right - rect.Left, rect.Bottom - rect.Top);
+        var desired = new System.Drawing.Point(
+            _dragStartWindowPos.X + cursor.X - _dragStartCursorPos.X,
+            _dragStartWindowPos.Y + cursor.Y - _dragStartCursorPos.Y);
+        var screen = System.Windows.Forms.Screen.FromPoint(cursor);
+        System.Drawing.Point target = OverlayPlacement.ClampAndSnap(screen.Bounds, size, desired);
+        _ = SetWindowPos(hwnd, IntPtr.Zero, target.X, target.Y, 0, 0, MoveWindowFlags);
+        (double leftPercent, double topPercent) = OverlayPlacement.Percent(screen.Bounds, size, target);
 
         CurrentSettings.LeftPercent = leftPercent;
         CurrentSettings.TopPercent = topPercent;
+        CurrentSettings.MonitorDeviceName = screen.DeviceName;
         UpdateDragCoordinateLabel();
 
-        PositionDragged?.Invoke(leftPercent, topPercent);
+        PositionDragged?.Invoke(leftPercent, topPercent, screen.DeviceName);
     }
 
     private void OverlayWindow_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

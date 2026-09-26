@@ -18,6 +18,11 @@ namespace HorizonRadioOverlay;
 
 public partial class MainWindow
 {
+    private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void MaximizeWindow_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
     private void WireShellControls()
     {
         NavigationListBox.SelectedIndex = 0;
@@ -32,6 +37,7 @@ public partial class MainWindow
             _nowPlayingViewModel.PrevCommand = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(PrevAsync);
             _nowPlayingViewModel.PlayPauseCommand = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(TogglePlayPauseAsync);
             _nowPlayingViewModel.NextCommand = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(NextAsync);
+            _nowPlayingViewModel.ToggleOverlayCommand = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(ToggleOverlayVisibilityAsync);
             _nowPlayingViewModel.RefreshCommand = new CommunityToolkit.Mvvm.Input.AsyncRelayCommand(async () => await RefreshCurrentTrackAsync(showOverlay: false, allowOverlayOnTrackChange: false));
             _nowPlayingViewModel.NavigateCommand = new CommunityToolkit.Mvvm.Input.RelayCommand<string>(key =>
             {
@@ -46,12 +52,18 @@ public partial class MainWindow
             _floatingSettingsViewModel.SettingsChanged += () =>
             {
                 if (_isInitializingOverlayControls) return;
+                _placementSaveTimer.Stop();
                 ApplyOverlaySettingsFromControls();
                 _diagnostic.Enabled = _activeSettings.DiagnosticMode;
                 _overlaySettingsService.Save(_activeSettings);
                 _remoteControlService.ApplySettings(_activeSettings);
                 UpdateRemoteControlPage();
                 _ = ApplyPauseOverlayVisibilityRuleAsync();
+            };
+            _floatingSettingsViewModel.PlacementChanged += () =>
+            {
+                if (_isInitializingOverlayControls) return;
+                ApplyOverlayPlacementFromControls();
             };
             _floatingSettingsViewModel.TrackSourceChanged += async () =>
             {
@@ -76,13 +88,14 @@ public partial class MainWindow
                 SetStatus("状态：数据来源已切换（点击“保存”可持久化）。", false);
             };
             _floatingSettingsViewModel.ToggleDragRepositionRequested += ToggleOverlayDragReposition;
-            _overlayWindow.PositionDragged += (leftPercent, topPercent) =>
+            _overlayWindow.PositionDragged += (leftPercent, topPercent, monitorDeviceName) =>
             {
                 Dispatcher.Invoke(() =>
                 {
-                    _floatingSettingsViewModel.UpdatePositionFromDrag(leftPercent, topPercent);
+                    _floatingSettingsViewModel.UpdatePositionFromDrag(leftPercent, topPercent, monitorDeviceName);
                     _activeSettings.LeftPercent = leftPercent;
                     _activeSettings.TopPercent = topPercent;
+                    _activeSettings.MonitorDeviceName = monitorDeviceName;
                     UpdateOverlayControlLabels();
                 });
             };
@@ -97,7 +110,6 @@ public partial class MainWindow
                 });
             };
             _floatingSettingsPageWired = true;
-            _floatingSettingsViewModel.LoadFrom(_activeSettings, _playbackCoordinator);
         }
 
         if (_hotkeySettingsPageView != null && !_hotkeySettingsPageWired)
@@ -109,7 +121,6 @@ public partial class MainWindow
                 ApplyHotkeySettings();
             };
             _hotkeySettingsPageWired = true;
-            _hotkeySettingsViewModel.LoadFromSettings(_activeSettings);
             SetupHotkeyCaptureInputs();
         }
 
@@ -133,7 +144,6 @@ public partial class MainWindow
             };
             _remoteControlViewModel.StatusNotification += (msg, isErr) => SetStatus(msg, isErr);
             _remoteControlPageWired = true;
-            _remoteControlViewModel.LoadFromSettings(_activeSettings);
             UpdateRemoteControlPage();
         }
 
@@ -145,17 +155,17 @@ public partial class MainWindow
                 if (_isInitializingOverlayControls) return;
                 ApplyOverlaySettingsFromControls();
             };
-            _themeSettingsPageView.ThemeAccentIndigoButton.Click += (_, _) => ApplyThemeAccentColor("#5B5CEB");
-            _themeSettingsPageView.ThemeAccentBlueButton.Click += (_, _) => ApplyThemeAccentColor("#3B82F6");
-            _themeSettingsPageView.ThemeAccentGreenButton.Click += (_, _) => ApplyThemeAccentColor("#22C55E");
-            _themeSettingsPageView.ThemeAccentAmberButton.Click += (_, _) => ApplyThemeAccentColor("#F59E0B");
-            _themeSettingsPageView.ThemeAccentRoseButton.Click += (_, _) => ApplyThemeAccentColor("#F43F5E");
+            _themeSettingsPageView.ThemeAccentIndigoButton.Click += (_, _) => ApplyThemeAccentColor("#635E89");
+            _themeSettingsPageView.ThemeAccentBlueButton.Click += (_, _) => ApplyThemeAccentColor("#326BEE");
+            _themeSettingsPageView.ThemeAccentGreenButton.Click += (_, _) => ApplyThemeAccentColor("#D7FF3F");
+            _themeSettingsPageView.ThemeAccentAmberButton.Click += (_, _) => ApplyThemeAccentColor("#53625B");
+            _themeSettingsPageView.ThemeAccentRoseButton.Click += (_, _) => ApplyThemeAccentColor("#AD526A");
             _themeSettingsPageView.MainColorPicker.ColorChanged += hex =>
             {
                 _themeSettingsViewModel.ApplyColorFromPicker(hex);
             };
             _themeSettingsPageWired = true;
-            _themeSettingsViewModel.LoadFrom(_activeSettings);
+            ApplyDisplayColors(_activeSettings);
         }
 
         if (_logsPageView != null && !_logsPageWired)
@@ -256,15 +266,8 @@ public partial class MainWindow
     private void ApplyAutoWindowSize()
     {
         var screen = SystemParameters.WorkArea;
-        double dpiScale = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
-        double screenWidth = screen.Width / dpiScale;
-        double screenHeight = screen.Height / dpiScale;
-
-        double targetWidth = Math.Min(1280, screenWidth * 0.50);
-        double targetHeight = Math.Min(910, screenHeight * 0.65);
-
-        Width = Math.Max(920, targetWidth);
-        Height = Math.Max(600, targetHeight);
+        Width = Math.Max(MinWidth, Math.Min(1280, screen.Width * 0.85));
+        Height = Math.Max(MinHeight, Math.Min(900, screen.Height * 0.85));
     }
 
     private void SetPreviewEffect(int level)
@@ -310,12 +313,29 @@ public partial class MainWindow
 
     private void ApplyThemeAccentColor(string colorHex)
     {
+        _themeSettingsViewModel.AccentColor = colorHex;
+    }
+
+    private void ApplyAccentPalette(string colorHex)
+    {
         try
         {
-            var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
-            Resources["PrimaryBrush"] = brush;
-            Application.Current.Resources["PrimaryBrush"] = brush;
-            SidebarIconBadge.Background = brush;
+            var color = (Color)ColorConverter.ConvertFromString(colorHex);
+            if (_themeSettingsPageView != null)
+            {
+                foreach (var swatch in new[] { _themeSettingsPageView.ThemeAccentGreenButton,
+                    _themeSettingsPageView.ThemeAccentBlueButton, _themeSettingsPageView.ThemeAccentRoseButton,
+                    _themeSettingsPageView.ThemeAccentIndigoButton, _themeSettingsPageView.ThemeAccentAmberButton })
+                    swatch.IsChecked = swatch.Background is SolidColorBrush swatchBrush && swatchBrush.Color == color;
+            }
+            if (Application.Current.Resources["PrimaryBrush"] is SolidColorBrush existing && existing.Color == color) return;
+            Application.Current.Resources["PrimaryBrush"] = new SolidColorBrush(color);
+            bool isLight = color.R * 0.299 + color.G * 0.587 + color.B * 0.114 > 175;
+            Application.Current.Resources["AccentTextBrush"] = new SolidColorBrush(isLight ? Color.FromRgb(32, 35, 44) : Colors.White);
+            Application.Current.Resources["AccentInkBrush"] = new SolidColorBrush(isLight
+                ? Color.FromRgb((byte)(color.R * 0.4), (byte)(color.G * 0.4), (byte)(color.B * 0.4)) : color);
+            Application.Current.Resources["AccentSoftBrush"] = new SolidColorBrush(Color.FromRgb(
+                (byte)(color.R * 0.1 + 250 * 0.9), (byte)(color.G * 0.1 + 251 * 0.9), (byte)(color.B * 0.1 + 250 * 0.9)));
         }
         catch
         {

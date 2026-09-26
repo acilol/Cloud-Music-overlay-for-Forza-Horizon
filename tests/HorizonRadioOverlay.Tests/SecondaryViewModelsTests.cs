@@ -155,6 +155,7 @@ public sealed class SecondaryViewModelsTests
         var settings = new OverlaySettings
         {
             TitleFontSize = 24.0,
+            AccentColor = "#3E6EA0",
             ArtistFontSize = 18.0,
             LyricsFontSize = 13.0
         };
@@ -178,6 +179,7 @@ public sealed class SecondaryViewModelsTests
         var targetSettings = new OverlaySettings();
         vm.ApplyTo(targetSettings);
         Assert.Equal(28.0, targetSettings.TitleFontSize);
+        Assert.Equal("#3E6EA0", targetSettings.AccentColor);
         Assert.Equal(18.0, targetSettings.ArtistFontSize);
         Assert.Equal(13.0, targetSettings.LyricsFontSize);
     }

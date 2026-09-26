@@ -20,11 +20,14 @@ namespace HorizonRadioOverlay;
 
 public partial class MainWindow
 {
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
+
     private void LoadEmbeddedResources()
     {
         try
         {
-            var iconUri = new Uri("pack://application:,,,/icon.ico");
+            var iconUri = new Uri("pack://application:,,,/HorizonRadioOverlay;component/icon.ico");
             var iconStream = Application.GetResourceStream(iconUri)?.Stream;
             if (iconStream != null)
             {
@@ -39,7 +42,7 @@ public partial class MainWindow
 
         try
         {
-            var imgUri = new Uri("pack://application:,,,/Assets/Icons/icons8-github-50.png");
+            var imgUri = new Uri("pack://application:,,,/HorizonRadioOverlay;component/Assets/Icons/icons8-github-50.png");
             var imgStream = Application.GetResourceStream(imgUri)?.Stream;
             if (imgStream != null && GitHubImage != null)
             {
@@ -65,7 +68,7 @@ public partial class MainWindow
         System.Drawing.Icon? icon = null;
         try
         {
-            var uri = new Uri("pack://application:,,,/icon.ico");
+            var uri = new Uri("pack://application:,,,/HorizonRadioOverlay;component/icon.ico");
             var streamInfo = Application.GetResourceStream(uri);
             if (streamInfo?.Stream != null)
             {
@@ -221,6 +224,11 @@ public partial class MainWindow
 
     private void MainWindow_SourceInitialized(object? sender, EventArgs e)
     {
+        int darkTitleBar = 0;
+        IntPtr hwnd = new WindowInteropHelper(this).Handle;
+        _ = DwmSetWindowAttribute(hwnd, 20, ref darkTitleBar, sizeof(int));
+        int roundedCorners = 2; // DWMWCP_ROUND on Windows 11; ignored by older Windows.
+        _ = DwmSetWindowAttribute(hwnd, 33, ref roundedCorners, sizeof(int));
         if (_startupInitialized)
         {
             return;
@@ -266,6 +274,20 @@ public partial class MainWindow
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
         _pageMetaUpdateTimer.Stop();
+        if (_placementSaveTimer.IsEnabled)
+        {
+            try { _overlaySettingsService.Save(_activeSettings); } catch { }
+        }
+        _placementSaveTimer.Stop();
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= MainWindow_DisplaySettingsChanged;
         _lifecycle.Dispose();
+    }
+
+    private void MainWindow_DisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.HasShutdownStarted)
+        {
+            _ = Dispatcher.BeginInvoke(() => _floatingSettingsViewModel.RefreshMonitors());
+        }
     }
 }

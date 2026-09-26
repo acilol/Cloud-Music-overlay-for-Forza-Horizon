@@ -9,7 +9,7 @@ namespace HorizonRadioOverlay.ViewModels;
 [SupportedOSPlatform("windows")]
 public sealed partial class AboutViewModel : ObservableObject
 {
-    public const string ProjectUrl = "https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon";
+    public const string ProjectUrl = "https://github.com/acilol/Cloud-Music-overlay-for-Forza-Horizon";
     public const string LicenseUrl = "https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon/blob/main/LICENSE";
 
     [ObservableProperty]

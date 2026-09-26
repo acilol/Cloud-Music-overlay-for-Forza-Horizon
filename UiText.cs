@@ -31,7 +31,7 @@ public static class UiText
     public const string NavAbout = "\u5173\u4E8E";
     public const string NavAboutDesc = "\u7248\u672C\u4E0E\u9879\u76EE\u5165\u53E3";
 
-    public const string NoTrackDetected = "\u672A\u68C0\u6D4B\u5230\u64AD\u653E\u4E2D\u7684\u6B4C\u66F2";
+    public const string NoTrackDetected = "等待音乐响起";
     public const string PleasePlayMedia = "\u8BF7\u5148\u64AD\u653E\u5A92\u4F53\u5185\u5BB9";
     public const string Previous = "\u4E0A\u4E00\u9996";
     public const string PlayPause = "\u64AD\u653E / \u6682\u505C";
@@ -40,7 +40,7 @@ public static class UiText
     public const string Refresh = "\u5237\u65B0";
     public const string LyricsPreview = "\u6B4C\u8BCD\u9884\u89C8";
     public const string LyricsPreviewDesc = "\u8FD9\u91CC\u663E\u793A\u6700\u8FD1\u540C\u6B65\u5230\u7684\u6B4C\u8BCD\u5185\u5BB9\u3002\u8BE5\u9884\u89C8\u53EA\u53CD\u6620\u4E3B\u7A97\u53E3\u72B6\u6001\uFF0C\u4E0D\u5F71\u54CD\u60AC\u6D6E\u7A97\u6E32\u67D3\u3002";
-    public const string LyricsPreviewPlaceholder = "\u6B4C\u8BCD\u9884\u89C8\u5C06\u5728\u540C\u6B65\u6210\u529F\u540E\u663E\u793A\u5728\u8FD9\u91CC\u3002";
+    public const string LyricsPreviewPlaceholder = "暂无歌词";
     public const string RuntimeStatus = "\u8FD0\u884C\u72B6\u6001";
     public const string Connected = "\u5DF2\u8FDE\u63A5";
     public const string RuntimeWaiting = "\u7B49\u5F85\u65B0\u7684\u5A92\u4F53\u4F1A\u8BDD\u6216\u7F51\u6613\u4E91\u7A97\u53E3\u6807\u9898\u3002";

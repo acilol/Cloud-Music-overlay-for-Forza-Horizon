@@ -111,8 +111,38 @@ public sealed class OverlaySettingsServiceTests
 
         OverlaySettings migrated = OverlaySettingsService.MigrateForTests(settings);
 
-        Assert.Equal(2, migrated.SchemaVersion);
+        Assert.Equal(OverlaySettings.CurrentVersion, migrated.SchemaVersion);
         Assert.True(migrated.EnableNeteaseMemoryTimeline);
+    }
+
+    [Fact]
+    public void Migrate_improves_artist_legibility_without_overwriting_custom_values()
+    {
+        OverlaySettings previousDefaults = new()
+        {
+            SchemaVersion = 3,
+            ArtistColor = "#C0D0E0",
+            ArtistOpacity = 0.86,
+            ArtistFontSize = 14.0
+        };
+        OverlaySettings custom = new()
+        {
+            SchemaVersion = 3,
+            ArtistColor = "#ABCDEF",
+            ArtistOpacity = 0.72,
+            ArtistFontSize = 18.0
+        };
+
+        OverlaySettings migratedDefaults = OverlaySettingsService.MigrateForTests(previousDefaults);
+        OverlaySettings migratedCustom = OverlaySettingsService.MigrateForTests(custom);
+
+        Assert.Equal(OverlaySettings.CurrentVersion, migratedDefaults.SchemaVersion);
+        Assert.Equal("#EFF3F6", migratedDefaults.ArtistColor);
+        Assert.Equal(0.96, migratedDefaults.ArtistOpacity);
+        Assert.Equal(15.0, migratedDefaults.ArtistFontSize);
+        Assert.Equal("#ABCDEF", migratedCustom.ArtistColor);
+        Assert.Equal(0.72, migratedCustom.ArtistOpacity);
+        Assert.Equal(18.0, migratedCustom.ArtistFontSize);
     }
 
     [Fact]
@@ -131,7 +161,9 @@ public sealed class OverlaySettingsServiceTests
             {
                 AppPrevHotkey = "Ctrl+Alt+P",
                 TitleColor = "#123456",
+                AccentColor = "#AD526A",
                 Scale = 1.5,
+                MonitorDeviceName = @"\\.\DISPLAY2",
                 RemoteControlPort = 18888
             };
 
@@ -142,7 +174,9 @@ public sealed class OverlaySettingsServiceTests
             var loaded = service.Load();
             Assert.Equal("Ctrl+Alt+P", loaded.AppPrevHotkey);
             Assert.Equal("#123456", loaded.TitleColor);
+            Assert.Equal("#AD526A", loaded.AccentColor);
             Assert.Equal(1.5, loaded.Scale);
+            Assert.Equal(@"\\.\DISPLAY2", loaded.MonitorDeviceName);
             Assert.Equal(18888, loaded.RemoteControlPort);
 
             // 第二次保存，验证 .bak 生成

@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
 using HorizonRadioOverlay;
 
 namespace HorizonRadioOverlay.Services;
 
+[SupportedOSPlatform("windows")]
 public static class OverlayWindowUiExtensions
 {
     private sealed class OverlayWindowCoverState
