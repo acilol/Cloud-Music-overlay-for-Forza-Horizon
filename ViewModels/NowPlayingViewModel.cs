@@ -10,6 +10,8 @@ namespace HorizonRadioOverlay.ViewModels;
 [SupportedOSPlatform("windows")]
 public sealed partial class NowPlayingViewModel : ObservableObject
 {
+    private DateTimeOffset? _playbackToggleSentAt;
+
     [ObservableProperty]
     private string _title = UiText.NoTrackDetected;
 
@@ -68,7 +70,35 @@ public sealed partial class NowPlayingViewModel : ObservableObject
 
     public string PlaybackGlyph => IsPlaying ? "\uE769" : "\uE768";
 
-    partial void OnIsPlayingChanged(bool value) => OnPropertyChanged(nameof(PlaybackGlyph));
+    public string PlaybackActionText => IsPlaying ? "暂停" : "播放";
+
+    partial void OnIsPlayingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PlaybackGlyph));
+        OnPropertyChanged(nameof(PlaybackActionText));
+    }
+
+    internal void ConfirmPlaybackToggle(DateTimeOffset sentAt)
+    {
+        _playbackToggleSentAt = sentAt;
+        IsPlaying = !IsPlaying;
+    }
+
+    internal void UpdatePlaybackState(bool? isPlaying, DateTimeOffset? capturedAt, DateTimeOffset now)
+    {
+        // A missing timeline is not evidence that playback has stopped.
+        if (isPlaying == null || capturedAt == null) return;
+
+        if (_playbackToggleSentAt is { } sentAt)
+        {
+            // Ignore reads started before the command and allow the player time to react.
+            if (capturedAt <= sentAt ||
+                (isPlaying != IsPlaying && now - sentAt < TimeSpan.FromSeconds(2))) return;
+            _playbackToggleSentAt = null;
+        }
+
+        IsPlaying = isPlaying.Value;
+    }
 
     [ObservableProperty]
     private string _lyricsPreview = UiText.LyricsPreviewPlaceholder;
@@ -88,6 +118,7 @@ public sealed partial class NowPlayingViewModel : ObservableObject
 
     public void ResetTrack()
     {
+        _playbackToggleSentAt = null;
         Title = UiText.NoTrackDetected;
         Artist = UiText.PleasePlayMedia;
         SourceText = UiText.SourceUnknown;

@@ -39,7 +39,6 @@ public partial class MainWindow : Window
     private volatile bool _isMainWindowVisible = true;
     private volatile bool _isOverlayVisible;
     private PlaybackDataHealth? _lastReportedHealth;
-    private bool? _lastReportedIsPlaying;
     private string? _lastReportedHealthError;
     private string? _lastReportedHealthSourceId;
     private readonly MainShellViewModel _shellViewModel;

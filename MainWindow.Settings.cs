@@ -412,9 +412,8 @@ public partial class MainWindow
             .HasFlag(PlaybackSourceCapabilities.PlaybackState);
         bool allowSelectedTimeline = IsSmtcSource() ||
             _activeSettings.EnableNeteaseMemoryTimeline;
-        bool timelineEnabled = supportsTimeline && allowSelectedTimeline &&
-            (_activeSettings.EnableLyrics ||
-             (_activeSettings.HideOverlayWhenPaused && IsSmtcSource()));
+        // Transport state and progress are needed by the mini player even without lyrics.
+        bool timelineEnabled = supportsTimeline && allowSelectedTimeline;
         _playbackSession.Configure(_activeSettings.TrackSource, timelineEnabled);
     }
 

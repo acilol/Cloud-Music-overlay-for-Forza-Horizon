@@ -70,6 +70,7 @@ public partial class MainWindow
                 if (_isInitializingOverlayControls) return;
                 ApplyOverlaySettingsFromControls();
                 _floatingSettingsViewModel.UpdateCapabilities(_playbackCoordinator);
+                _nowPlayingViewModel.ResetTrack();
                 _smtcCoverRefreshCts?.Cancel();
                 _smtcCoverRefreshCts = null;
                 lock (_lyricGate)

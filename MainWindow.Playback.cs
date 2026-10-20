@@ -140,12 +140,9 @@ public partial class MainWindow
         bool shouldCheckPauseVisibility = _activeSettings.HideOverlayWhenPaused && isSmtcSource;
 
         PlaybackSnapshot snapshot = _playbackSession.LatestSnapshot;
-        if (_lastReportedIsPlaying != snapshot.IsPlaying)
-        {
-            _lastReportedIsPlaying = snapshot.IsPlaying;
-            _ = Dispatcher.BeginInvoke(() => _nowPlayingViewModel.IsPlaying = snapshot.IsPlaying == true,
-                DispatcherPriority.Background);
-        }
+        _ = Dispatcher.BeginInvoke(() => _nowPlayingViewModel.UpdatePlaybackState(
+            snapshot.IsPlaying, snapshot.TimelineCapturedAt, DateTimeOffset.UtcNow),
+            DispatcherPriority.Background);
         CrashReportService.UpdatePlaybackSnapshot(snapshot);
 
         if (snapshot.Health != _lastReportedHealth ||
@@ -284,8 +281,11 @@ public partial class MainWindow
             return;
         }
 
-        SetStatus("状态：已发送播放/暂停指令。", false);
-        await RefreshCurrentTrackAsync(showOverlay: false, allowOverlayOnTrackChange: false);
+        _nowPlayingViewModel.ConfirmPlaybackToggle(DateTimeOffset.UtcNow);
+        BoostPolling();
+        PlaybackSnapshot snapshot = await _playbackSession.RefreshTimelineAsync();
+        _nowPlayingViewModel.UpdatePlaybackState(
+            snapshot.IsPlaying, snapshot.TimelineCapturedAt, DateTimeOffset.UtcNow);
     }
 
     private void UpdatePlaybackHealthText(PlaybackSnapshot snapshot)
@@ -463,6 +463,7 @@ public partial class MainWindow
 
             if (track == null)
             {
+                _nowPlayingViewModel.ResetTrack();
                 _nowPlayingViewModel.PositionSeconds = 0;
                 _nowPlayingViewModel.DurationSeconds = 0;
                 _nowPlayingViewModel.PreviousLyric = string.Empty;

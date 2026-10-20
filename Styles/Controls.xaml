@@ -44,24 +44,17 @@
         <Setter Property="Width" Value="40" /><Setter Property="Height" Value="40" /><Setter Property="MinHeight" Value="40" /><Setter Property="Padding" Value="0" />
     </Style>
     <Style x:Key="PlayButtonStyle" TargetType="Button" BasedOn="{StaticResource PrimaryButtonStyle}">
-        <Setter Property="FocusVisualStyle">
-            <Setter.Value>
-                <Style TargetType="Control">
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="Control">
-                                <Ellipse Margin="-4" Stroke="{DynamicResource PrimaryBrush}" StrokeThickness="2" IsHitTestVisible="False" />
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Width" Value="48" /><Setter Property="Height" Value="48" /><Setter Property="Padding" Value="0" />
         <Setter Property="Template"><Setter.Value>
             <ControlTemplate TargetType="Button">
-                <Grid x:Name="Root"><Ellipse Fill="{TemplateBinding Background}" /><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
+                <Grid x:Name="Root">
+                    <Ellipse Fill="{TemplateBinding Background}" />
+                    <Ellipse x:Name="FocusRing" Margin="-4" Stroke="{TemplateBinding Background}" StrokeThickness="2" Visibility="Collapsed" IsHitTestVisible="False" />
+                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
                 <ControlTemplate.Triggers>
+                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible" /></Trigger>
                     <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.8" /></Trigger>
                     <Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Opacity" Value="0.6" /></Trigger>
                     <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Root" Property="Opacity" Value="0.35" /></Trigger>

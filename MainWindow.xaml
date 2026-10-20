@@ -120,7 +120,7 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" DataContext="{Binding DataContext, ElementName=MiniPlayerPanel}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,9">
                             <Button Style="{StaticResource IconButtonStyle}" Command="{Binding PrevCommand}" ToolTip="上一首" Margin="0,0,20,0"><TextBlock Text="&#xE892;" Style="{StaticResource IconTextStyle}" /></Button>
-                            <Button Style="{StaticResource PlayButtonStyle}" Width="50" Height="50" Command="{Binding PlayPauseCommand}" ToolTip="播放或暂停"><TextBlock Text="{Binding PlaybackGlyph}" Style="{StaticResource IconTextStyle}" Foreground="{DynamicResource AccentTextBrush}" FontSize="20" /></Button>
+                            <Button x:Name="PlayPauseButton" Style="{StaticResource PlayButtonStyle}" Width="50" Height="50" Command="{Binding PlayPauseCommand}" ToolTip="{Binding PlaybackActionText}" AutomationProperties.Name="{Binding PlaybackActionText}"><TextBlock Text="{Binding PlaybackGlyph}" Style="{StaticResource IconTextStyle}" Foreground="{DynamicResource AccentTextBrush}" FontSize="20" /></Button>
                             <Button Style="{StaticResource IconButtonStyle}" Command="{Binding NextCommand}" ToolTip="下一首" Margin="20,0,0,0"><TextBlock Text="&#xE893;" Style="{StaticResource IconTextStyle}" /></Button>
                         </StackPanel>
                         <Grid>
@@ -134,7 +134,7 @@
                         <Button Style="{StaticResource IconButtonStyle}" Command="{Binding DataContext.ToggleOverlayCommand, ElementName=MiniPlayerPanel}" ToolTip="显示 / 隐藏浮窗" HorizontalAlignment="Right">
                             <TextBlock Text="&#xE7F4;" Style="{StaticResource IconTextStyle}" />
                         </Button>
-                        <TextBlock x:Name="StatusText" Text="就绪" FontSize="11" MaxWidth="180" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource FaintTextBrush}" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                        <TextBlock x:Name="StatusText" Visibility="Collapsed" />
                         <TextBlock x:Name="FooterSourceText" Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
