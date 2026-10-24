@@ -46,7 +46,7 @@ Windows 游戏音乐悬浮窗：在游戏画面上显示封面、歌名、歌手
 
 ## 获取程序
 
-本仓库目前没有对应新版界面的 Release。可从本仓库 `main` 分支自行构建；[上游 Releases](https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon/releases) 提供的是上游已发布版本，不包含这里展示的本次界面改版。项目历史更新见 [CHANGELOG.md](CHANGELOG.md)。
+本仓库目前没有对应新版界面的 Release。可从本仓库 `main` 分支自行构建；[上游 Releases](https://github.com/xw66/Cloud-Music-overlay-for-Forza-Horizon/releases) 提供的是上游已发布版本，不包含这里展示的本次界面改版。项目历史更新见 [CHANGELOG.md](CHANGELOG.md)，各版本发行说明位于 [docs/releases](docs/releases)。
 
 构建时可选择三个架构：
 - `win-x64`：绝大多数 PC 选择此版本

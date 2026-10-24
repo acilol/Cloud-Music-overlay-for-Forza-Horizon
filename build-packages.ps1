@@ -44,7 +44,7 @@ foreach ($rid in $rids) {
 }
 
 # 复制 Release Notes
-$notesFile = Join-Path $workspaceRoot "RELEASE_NOTES_${Version}.md"
+$notesFile = Join-Path $workspaceRoot "docs\releases\RELEASE_NOTES_${Version}.md"
 if (Test-Path $notesFile) {
     Copy-Item $notesFile (Join-Path $publishDir "RELEASE_NOTES_${Version}.md") -Force
 }
