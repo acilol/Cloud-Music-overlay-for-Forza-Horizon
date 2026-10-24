@@ -32,10 +32,10 @@ public sealed partial class HotkeySettingsViewModel : ObservableObject
     private bool _enableGamepadHotkeys;
 
     [ObservableProperty]
-    private string _gamepadPrevHotkey = "LB+Left";
+    private string _gamepadPrevHotkey = "LB+LS";
 
     [ObservableProperty]
-    private string _gamepadNextHotkey = "RB+Right";
+    private string _gamepadNextHotkey = "LB+RS";
 
     [ObservableProperty]
     private string _gamepadToggleHotkey = "LT+RT+Y";

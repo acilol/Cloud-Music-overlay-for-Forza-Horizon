@@ -215,6 +215,7 @@ public partial class MainWindow
 
     private void ShowPage(string key)
     {
+        if (key != "Hotkeys") EndGamepadHotkeyCapture();
         FrameworkElement activePage = key switch
         {
             "FloatingSettings" => FloatingSettingsPageView,

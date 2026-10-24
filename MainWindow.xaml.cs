@@ -73,8 +73,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<TextBox, GamepadButton> _gamepadCaptureBaseline = new();
     private readonly Dictionary<TextBox, GamepadButton> _gamepadCaptureCandidates = new();
     private readonly Dictionary<TextBox, int> _gamepadCaptureCandidateCounts = new();
-    private bool _gamepadEnabledBeforeCapture;
-    private int _gamepadCaptureFocusCount;
+    private TextBox? _activeGamepadCaptureInput;
     private System.Windows.Forms.NotifyIcon? _trayIcon;
     private bool _isRealExit;
     private readonly bool _startHiddenToTray;
@@ -302,6 +301,8 @@ public partial class MainWindow : Window
         IsVisibleChanged += (_, _) => UpdateUiVisibilityCache();
         StateChanged += (_, _) => UpdateUiVisibilityCache();
         StateChanged += (_, _) => ChromeMaximizeGlyph.Text = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
+        Deactivated += (_, _) => EndGamepadHotkeyCapture();
+        Activated += (_, _) => ResumeGamepadHotkeyCapture();
         _overlayWindow.IsVisibleChanged += (_, _) => UpdateUiVisibilityCache();
         UpdateUiVisibilityCache();
 

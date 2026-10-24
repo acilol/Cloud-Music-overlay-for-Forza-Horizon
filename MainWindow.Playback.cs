@@ -329,8 +329,11 @@ public partial class MainWindow
         PlaybackCommandResult result = await _playbackCoordinator.ExecuteAsync(command, _activeSettings);
         if (result.Succeeded)
         {
+            _diagnostic.Event($"播放控制指令已发送：{displayName}，source={result.SourceId}");
             return true;
         }
+
+        _diagnostic.Warn($"播放控制指令发送失败：{displayName}，source={result.SourceId}，status={result.Status}");
 
         if (result.Status == PlaybackCommandStatus.Unsupported)
         {

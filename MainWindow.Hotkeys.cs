@@ -74,6 +74,7 @@ public partial class MainWindow
         textBox.IsReadOnly = true;
         textBox.GotKeyboardFocus += GamepadHotkeyInput_GotKeyboardFocus;
         textBox.LostKeyboardFocus += GamepadHotkeyInput_LostKeyboardFocus;
+        textBox.Unloaded += (_, _) => EndGamepadHotkeyCapture(textBox);
     }
 
     private void GamepadHotkeyInput_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
@@ -82,6 +83,23 @@ public partial class MainWindow
         {
             return;
         }
+
+        BeginGamepadHotkeyCapture(textBox);
+    }
+
+    private void ResumeGamepadHotkeyCapture()
+    {
+        if (Keyboard.FocusedElement is TextBox textBox && textBox.IsVisible &&
+            _gamepadCommitTimers.ContainsKey(textBox))
+        {
+            BeginGamepadHotkeyCapture(textBox);
+        }
+    }
+
+    private void BeginGamepadHotkeyCapture(TextBox textBox)
+    {
+        if (ReferenceEquals(_activeGamepadCaptureInput, textBox)) return;
+        EndGamepadHotkeyCapture();
 
         if (!_gamepadCommitTimers.TryGetValue(textBox, out DispatcherTimer? timer))
         {
@@ -93,13 +111,8 @@ public partial class MainWindow
             _gamepadCommitTimers[textBox] = timer;
         }
 
-        if (_gamepadCaptureFocusCount == 0)
-        {
-            _gamepadEnabledBeforeCapture = _gamepadInputService.Enabled;
-        }
-
-        _gamepadCaptureFocusCount++;
-        _gamepadInputService.Enabled = false;
+        _activeGamepadCaptureInput = textBox;
+        _gamepadInputService.IsCapturingHotkey = true;
         _gamepadCaptureBaseline[textBox] = GamepadInputService.GetCurrentButtonsSnapshot();
         _gamepadCaptureCandidates.Remove(textBox);
         _gamepadCaptureCandidateCounts.Remove(textBox);
@@ -108,10 +121,15 @@ public partial class MainWindow
 
     private void GamepadHotkeyInput_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (sender is not TextBox textBox)
-        {
-            return;
-        }
+        if (sender is TextBox textBox) EndGamepadHotkeyCapture(textBox);
+    }
+
+    private void EndGamepadHotkeyCapture(TextBox? expectedInput = null)
+    {
+        TextBox? textBox = _activeGamepadCaptureInput;
+        if (textBox == null || (expectedInput != null && !ReferenceEquals(textBox, expectedInput))) return;
+
+        _activeGamepadCaptureInput = null;
 
         if (_gamepadCommitTimers.TryGetValue(textBox, out DispatcherTimer? timer))
         {
@@ -123,15 +141,12 @@ public partial class MainWindow
         _gamepadCaptureCandidates.Remove(textBox);
         _gamepadCaptureCandidateCounts.Remove(textBox);
 
-        _gamepadCaptureFocusCount = Math.Max(0, _gamepadCaptureFocusCount - 1);
-        if (_gamepadCaptureFocusCount == 0)
-        {
-            _gamepadInputService.Enabled = _gamepadEnabledBeforeCapture;
-        }
+        _gamepadInputService.IsCapturingHotkey = false;
     }
 
     private void DisposeGamepadHotkeyCaptureTimers()
     {
+        EndGamepadHotkeyCapture();
         foreach (DispatcherTimer timer in _gamepadCommitTimers.Values)
         {
             timer.Stop();
@@ -142,12 +157,17 @@ public partial class MainWindow
         _gamepadCaptureBaseline.Clear();
         _gamepadCaptureCandidates.Clear();
         _gamepadCaptureCandidateCounts.Clear();
-        _gamepadCaptureFocusCount = 0;
-        _gamepadInputService.Enabled = _gamepadEnabledBeforeCapture;
     }
 
     private void CaptureGamepadInput(TextBox textBox)
     {
+        if (!ReferenceEquals(_activeGamepadCaptureInput, textBox)) return;
+        if (!IsActive || !textBox.IsVisible || !textBox.IsKeyboardFocused)
+        {
+            EndGamepadHotkeyCapture(textBox);
+            return;
+        }
+
         GamepadButton currentButtons = GamepadInputService.GetCurrentButtonsSnapshot();
         if (currentButtons == GamepadButton.None)
         {

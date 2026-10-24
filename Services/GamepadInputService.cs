@@ -25,6 +25,8 @@ public sealed class GamepadInputService : IDisposable
     private long _lastRawInputDiagnosticTick;
     private bool _isRunning;
     private bool _enabled;
+    private bool _isCapturingHotkey;
+    private bool _synchronizePressedState = true;
     private bool _prevPressed;
     private bool _nextPressed;
     private bool _togglePressed;
@@ -44,6 +46,18 @@ public sealed class GamepadInputService : IDisposable
             SyncTimerState();
         }
     }
+    public bool IsCapturingHotkey
+    {
+        get => _isCapturingHotkey;
+        set
+        {
+            if (_isCapturingHotkey == value) return;
+            _isCapturingHotkey = value;
+            _diagnostic?.Event(value ? "手柄快捷键录入开始。" : "手柄快捷键录入结束，恢复监听。");
+            SyncTimerState();
+        }
+    }
+
     public GamepadHotkeyDefinition PrevHotkey { get; set; }
     public GamepadHotkeyDefinition NextHotkey { get; set; }
     public GamepadHotkeyDefinition ToggleHotkey { get; set; }
@@ -72,7 +86,7 @@ public sealed class GamepadInputService : IDisposable
     public void Stop()
     {
         _isRunning = false;
-        _timer.Stop();
+        SyncTimerState();
     }
 
     public static GamepadButton GetCurrentButtonsSnapshot()
@@ -123,46 +137,51 @@ public sealed class GamepadInputService : IDisposable
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
-        if (!Enabled)
-        {
-            _prevPressed = false;
-            _nextPressed = false;
-            _togglePressed = false;
-            _toggleOverlayPressed = false;
-            return;
-        }
+        ProcessButtons(ReadCurrentButtons());
+    }
 
-        GamepadButton current = ReadCurrentButtons();
+    internal void ProcessButtons(GamepadButton current)
+    {
+        if (!_isRunning || !Enabled || IsCapturingHotkey) return;
 
         bool prevNow = IsPressed(current, PrevHotkey.Buttons);
         bool nextNow = IsPressed(current, NextHotkey.Buttons);
         bool toggleNow = IsPressed(current, ToggleHotkey.Buttons);
         bool toggleOverlayNow = IsPressed(current, ToggleOverlayHotkey.Buttons);
 
-        if (prevNow && !_prevPressed)
-        {
-            PrevTriggered?.Invoke(this, EventArgs.Empty);
-        }
-
-        if (nextNow && !_nextPressed)
-        {
-            NextTriggered?.Invoke(this, EventArgs.Empty);
-        }
-
-        if (toggleNow && !_togglePressed)
-        {
-            ToggleTriggered?.Invoke(this, EventArgs.Empty);
-        }
-
-        if (toggleOverlayNow && !_toggleOverlayPressed)
-        {
-            ToggleOverlayTriggered?.Invoke(this, EventArgs.Empty);
-        }
+        bool previousTriggered = prevNow && !_prevPressed && !_synchronizePressedState;
+        bool nextTriggered = nextNow && !_nextPressed && !_synchronizePressedState;
+        bool toggleTriggered = toggleNow && !_togglePressed && !_synchronizePressedState;
+        bool overlayTriggered = toggleOverlayNow && !_toggleOverlayPressed && !_synchronizePressedState;
 
         _prevPressed = prevNow;
         _nextPressed = nextNow;
         _togglePressed = toggleNow;
         _toggleOverlayPressed = toggleOverlayNow;
+        _synchronizePressedState = false;
+
+        if (previousTriggered)
+        {
+            _diagnostic?.Event($"手柄快捷键触发：上一首，buttons={current}");
+            PrevTriggered?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (nextTriggered)
+        {
+            _diagnostic?.Event($"手柄快捷键触发：下一首，buttons={current}");
+            NextTriggered?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (toggleTriggered)
+        {
+            ToggleTriggered?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (overlayTriggered)
+        {
+            ToggleOverlayTriggered?.Invoke(this, EventArgs.Empty);
+        }
+
     }
 
     private static bool IsPressed(GamepadButton current, GamepadButton required)
@@ -177,25 +196,42 @@ public sealed class GamepadInputService : IDisposable
 
     private static GamepadButton ReadCurrentButtons()
     {
-        GamepadButton rawInputButtons = ReadRawInputSnapshot();
-        if (_hasDualSenseRawInput)
-        {
-            return rawInputButtons;
-        }
+        return ReadCurrentButtons(
+            () =>
+            {
+                GamepadButton buttons = ReadXInputButtons(out bool connected);
+                return (connected, buttons);
+            },
+            ReadNonXInputButtons);
+    }
 
-        GamepadButton buttons = ReadXInputButtons() | rawInputButtons;
+    internal static GamepadButton ReadCurrentButtons(
+        Func<(bool Connected, GamepadButton Buttons)> readXInput,
+        Func<GamepadButton> readFallback)
+    {
+        var xbox = readXInput();
+        // A connected Xbox controller owns the standard controls, including its released state.
+        // A physical Sony device behind DSX must not mask or reintroduce its buttons.
+        return xbox.Connected ? xbox.Buttons : readFallback();
+    }
+
+    private static GamepadButton ReadNonXInputButtons()
+    {
+        GamepadButton buttons = ReadRawInputSnapshot() | ReadWindowsGamepadButtons();
         GamepadButton rawButtons = GamepadButton.None;
 
         try
         {
             foreach (RawGameController controller in RawGameController.RawGameControllers)
             {
-                if (controller.HardwareVendorId == SonyVendorId)
+                if (IsDualSense(controller))
                 {
-                    continue;
+                    buttons |= ReadDualSenseButtons(controller);
                 }
-
-                rawButtons |= ReadGenericRawControllerButtons(controller);
+                else
+                {
+                    rawButtons |= ReadGenericRawControllerButtons(controller);
+                }
             }
         }
         catch
@@ -208,8 +244,10 @@ public sealed class GamepadInputService : IDisposable
 
     private static GamepadButton ReadRawInputSnapshot()
     {
-        long elapsedMs = Environment.TickCount64 - _lastRawInputTick;
-        return elapsedMs <= RawInputHoldMilliseconds ? _lastRawInputButtons : GamepadButton.None;
+        long now = Environment.TickCount64;
+        return _lastRawInputTick > 0 && now >= _lastRawInputTick &&
+            now - _lastRawInputTick <= RawInputHoldMilliseconds
+            ? _lastRawInputButtons : GamepadButton.None;
     }
 
     private static GamepadButton ReadWindowsGamepadButtons()
@@ -264,13 +302,15 @@ public sealed class GamepadInputService : IDisposable
         return buttons;
     }
 
-    private static GamepadButton ReadXInputButtons()
+    private static GamepadButton ReadXInputButtons(out bool connected)
     {
+        connected = false;
         GamepadButton buttons = GamepadButton.None;
         for (uint userIndex = 0; userIndex < 4; userIndex++)
         {
             if (XInputGetState(userIndex, out XInputState state) == 0)
             {
+                connected = true;
                 buttons |= MapXInputButtons(state.Gamepad);
             }
         }
@@ -324,6 +364,7 @@ public sealed class GamepadInputService : IDisposable
         buttons |= RawButton(rawButtons, 9, GamepadButton.Start); // Options
         buttons |= RawButton(rawButtons, 10, GamepadButton.LeftThumb);
         buttons |= RawButton(rawButtons, 11, GamepadButton.RightThumb);
+        if (switches.Length > 0) buttons |= MapDPad(switches[0]);
 
         return buttons;
     }
@@ -442,10 +483,12 @@ public sealed class GamepadInputService : IDisposable
             {
                 byte[] report = new byte[reportSize];
                 Marshal.Copy(IntPtr.Add(buffer, dataOffset + reportIndex * reportSize), report, 0, reportSize);
-                if (IsDualSenseHidReport(report))
+                if (hasDeviceInfo && deviceInfo.VendorId == SonyVendorId &&
+                    deviceInfo.ProductId is DualSenseProductId or DualSenseEdgeProductId &&
+                    IsDualSenseHidReport(report))
                 {
                     sawDualSenseReport = true;
-                    buttons |= MapDualSenseHidReport(report);
+                    buttons = MapDualSenseHidReport(report);
                 }
                 LogRawInputSample(deviceInfo, report, buttons);
             }
@@ -454,7 +497,6 @@ public sealed class GamepadInputService : IDisposable
             {
                 _lastRawInputButtons = buttons;
                 _lastRawInputTick = Environment.TickCount64;
-                _hasDualSenseRawInput = true;
             }
         }
         catch (Exception ex)
@@ -482,7 +524,7 @@ public sealed class GamepadInputService : IDisposable
 
         _lastRawInputDiagnosticTick = now;
         string bytes = string.Join(" ", report.Take(Math.Min(report.Length, 24)).Select(x => x.ToString("X2")));
-        _diagnostic.Event(
+        _diagnostic.Info(
             $"Raw Input 手柄报告：vid=0x{deviceInfo.VendorId:X4}, pid=0x{deviceInfo.ProductId:X4}, usage=0x{deviceInfo.UsagePage:X2}/0x{deviceInfo.Usage:X2}, len={report.Length}, buttons={buttons}, data={bytes}");
     }
 
@@ -584,7 +626,8 @@ public sealed class GamepadInputService : IDisposable
 
     private void SyncTimerState()
     {
-        if (_isRunning && _enabled)
+        _synchronizePressedState = true;
+        if (_isRunning && _enabled && !_isCapturingHotkey)
         {
             _timer.Start();
         }
@@ -618,8 +661,7 @@ public sealed class GamepadInputService : IDisposable
     };
     private static readonly int RawInputHeaderSize = 8 + IntPtr.Size * 2;
     private static GamepadButton _lastRawInputButtons;
-    private static long _lastRawInputTick = long.MinValue;
-    private static bool _hasDualSenseRawInput;
+    private static long _lastRawInputTick;
 
     [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
     private static extern uint XInputGetState(uint dwUserIndex, out XInputState pState);
@@ -655,7 +697,7 @@ public sealed class GamepadInputService : IDisposable
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct RawInputHidDeviceInfo
+    internal struct RawInputHidDeviceInfo
     {
         public uint VendorId;
         public uint ProductId;
@@ -664,11 +706,15 @@ public sealed class GamepadInputService : IDisposable
         public ushort Usage;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RawInputDeviceInfo
+    // RID_DEVICE_INFO includes a union whose keyboard member takes 24 bytes.
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
+    internal struct RawInputDeviceInfo
     {
+        [FieldOffset(0)]
         public uint Size;
+        [FieldOffset(4)]
         public uint Type;
+        [FieldOffset(8)]
         public RawInputHidDeviceInfo Hid;
     }
 

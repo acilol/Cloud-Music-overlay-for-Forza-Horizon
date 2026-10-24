@@ -23,8 +23,8 @@ public sealed class OverlaySettings
     public string NeteaseToggleHotkey { get; set; } = "Ctrl+Alt+P";
 
     public bool EnableGamepadHotkeys { get; set; } = false;
-    public string GamepadPrevHotkey { get; set; } = "LB+Left";
-    public string GamepadNextHotkey { get; set; } = "RB+Right";
+    public string GamepadPrevHotkey { get; set; } = "LB+LS";
+    public string GamepadNextHotkey { get; set; } = "LB+RS";
     public string GamepadToggleHotkey { get; set; } = "LT+RT+Y";
     public string GamepadToggleOverlayHotkey { get; set; } = "Back+Start";
 
