@@ -1,15 +1,26 @@
 param(
+    [ValidatePattern('\Av?\d+\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z')]
     [string]$Version = "v3.1.1"
 )
 
 $ErrorActionPreference = "Stop"
 
 $workspaceRoot = $PSScriptRoot
-$publishDir = Join-Path $workspaceRoot "publish\$Version"
+$publishRoot = [IO.Path]::GetFullPath((Join-Path $workspaceRoot "publish"))
+$publishDir = [IO.Path]::GetFullPath((Join-Path $publishRoot $Version))
+if (![string]::Equals([IO.Path]::GetDirectoryName($publishDir), $publishRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Publish directory must be a version folder directly inside publish."
+}
+foreach ($directory in @($publishRoot, $publishDir)) {
+    if ((Test-Path -LiteralPath $directory) -and
+        ((Get-Item -LiteralPath $directory -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "Refusing to clean a linked publish directory: $directory"
+    }
+}
 
 Write-Host "Starting build & packaging for version $Version..."
-if (Test-Path $publishDir) {
-    Remove-Item -Path $publishDir -Recurse -Force
+if (Test-Path -LiteralPath $publishDir) {
+    Remove-Item -LiteralPath $publishDir -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
 
@@ -19,7 +30,7 @@ foreach ($rid in $rids) {
     Write-Host "`n>>> Publishing $rid..."
     $outDir = Join-Path $publishDir $rid
     
-    dotnet publish "$workspaceRoot\HorizonRadioOverlay.csproj" `
+    & "$workspaceRoot\dotnet10.cmd" publish "$workspaceRoot\HorizonRadioOverlay.csproj" `
         -c Release `
         -r $rid `
         --self-contained true `
@@ -30,15 +41,19 @@ foreach ($rid in $rids) {
         -p:DebugType=None `
         -o $outDir
 
+    if ($LASTEXITCODE -ne 0) {
+        throw "Publishing $rid failed with exit code $LASTEXITCODE."
+    }
+
     $singleExe = Join-Path $outDir "HorizonRadioOverlay.exe"
     $targetExeName = "HorizonRadioOverlay_${Version}_${rid}.exe"
     $targetExePath = Join-Path $publishDir $targetExeName
-    Copy-Item $singleExe $targetExePath -Force
+    Copy-Item -LiteralPath $singleExe -Destination $targetExePath -Force
     Write-Host "Created single-file: $targetExeName"
 
     $zipName = "HorizonRadioOverlay_${Version}_${rid}.zip"
     $zipPath = Join-Path $publishDir $zipName
-    if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+    if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force }
     Compress-Archive -Path "$outDir\*" -DestinationPath $zipPath -Force
     Write-Host "Created zip package: $zipName"
 }

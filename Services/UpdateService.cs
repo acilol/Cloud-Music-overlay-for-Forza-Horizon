@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using HorizonRadioOverlay.Models;
 
@@ -12,6 +13,7 @@ public sealed class UpdateService : IDisposable
 
     private readonly HttpClient _httpClient;
     private readonly bool _disposeClient;
+    private readonly Architecture _architecture;
 
     public UpdateService()
         : this(AppHttpClientProvider.CreateClient(TimeSpan.FromSeconds(10), "HorizonRadioOverlay/1.0"), disposeClient: true)
@@ -19,9 +21,15 @@ public sealed class UpdateService : IDisposable
     }
 
     public UpdateService(HttpClient httpClient, bool disposeClient = false)
+        : this(httpClient, RuntimeInformation.OSArchitecture, disposeClient)
+    {
+    }
+
+    internal UpdateService(HttpClient httpClient, Architecture architecture, bool disposeClient = false)
     {
         _httpClient = httpClient;
         _disposeClient = disposeClient;
+        _architecture = architecture;
     }
 
     public async Task<UpdateInfo> CheckForUpdateAsync()
@@ -37,12 +45,20 @@ public sealed class UpdateService : IDisposable
             string releaseNotes = root.TryGetProperty("body", out var body) ? body.GetString() ?? "" : "";
 
             string downloadUrl = "";
-            if (root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            string? runtimeId = _architecture switch
+            {
+                Architecture.X86 => "win-x86",
+                Architecture.X64 => "win-x64",
+                Architecture.Arm64 => "win-arm64",
+                _ => null
+            };
+            if (runtimeId != null && root.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
             {
                 foreach (var asset in assets.EnumerateArray())
                 {
                     string name = asset.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-                    if (name.Contains("win-x64"))
+                    if (name.EndsWith(runtimeId + ".exe", StringComparison.OrdinalIgnoreCase) ||
+                        name.EndsWith(runtimeId + ".zip", StringComparison.OrdinalIgnoreCase))
                     {
                         downloadUrl = asset.TryGetProperty("browser_download_url", out var url) ? url.GetString() ?? "" : "";
                         break;

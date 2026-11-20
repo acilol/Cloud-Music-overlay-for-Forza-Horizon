@@ -68,4 +68,10 @@ public sealed class OverlayAnimationQueue : IDisposable
         lock (_gate) _currentRequest?.Cancel();
         _ = _processTask.ContinueWith(_ => _cts.Dispose(), TaskScheduler.Default);
     }
+
+    public void CancelPending()
+    {
+        Interlocked.Increment(ref _sequenceId);
+        lock (_gate) _currentRequest?.Cancel();
+    }
 }

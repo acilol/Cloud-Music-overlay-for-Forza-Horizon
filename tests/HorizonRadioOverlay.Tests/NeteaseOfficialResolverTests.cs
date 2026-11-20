@@ -202,6 +202,30 @@ public class NeteaseOfficialResolverTests
         Assert.Equal(2, detailRequests);
     }
 
+    [Fact]
+    public async Task Rejected_preferred_id_falls_back_to_search_without_poisoning_track_cache()
+    {
+        int searchRequests = 0;
+        using var diagnostic = new DiagnosticService(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".log"));
+        using var client = new HttpClient(new FakeHttpMessageHandler(request =>
+        {
+            bool search = request.RequestUri!.AbsolutePath.Contains("search");
+            if (search) searchRequests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(search
+                    ? """{"result":{"songs":[{"id":1,"name":"Right song","artists":[{"name":"Right artist"}],"album":{"picUrl":"https://example.invalid/right.jpg"}}]}}"""
+                    : """{"songs":[{"id":2,"name":"Unrelated","ar":[{"name":"Different artist"}],"al":{"picUrl":"https://example.invalid/wrong.jpg"}}]}""")
+            };
+        }));
+        var resolver = new NeteaseOfficialResolver(diagnostic, client);
+        var first = await resolver.ResolveAsync("Right song", "Right artist", "2");
+        var second = await resolver.ResolveAsync("Right song", "Right artist");
+        Assert.Equal("1", first?.SongId);
+        Assert.Equal("1", second?.SongId);
+        Assert.Equal(1, searchRequests);
+    }
+
     private sealed class FakeHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

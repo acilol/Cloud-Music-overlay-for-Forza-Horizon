@@ -222,6 +222,20 @@ public partial class MainWindow
         {
             await RefreshCurrentTrackAsync(showOverlay: false, allowOverlayOnTrackChange: true, snapshot);
         }
+        else if (_activeSettings.EnableLyrics && snapshot.Track is { } track &&
+                 _lyricsService.ShouldRetryCurrentLyrics && IsCurrentTrackSnapshot(snapshot))
+        {
+            string trackKey = isSmtcSource
+                ? TrackIdentity.BuildTrackKey(track, includeSourceAppId: true)
+                : TrackIdentity.BuildNeteaseTrackKey(track);
+            if (string.Equals(trackKey, _lastDisplayTrackKey, StringComparison.Ordinal))
+            {
+                double position = isSmtcSource
+                    ? _smtcLyricTimingController.GetCurrentDisplayPositionSeconds() ?? 0
+                    : _neteaseLyricTimingController.GetCurrentPositionSeconds();
+                _ = FetchCurrentLyricsAsync(track, position, snapshot.SourceId, trackKey);
+            }
+        }
     }
 
     private async void Refresh_Click(object sender, RoutedEventArgs e)
@@ -544,7 +558,9 @@ public partial class MainWindow
                 }
                 _lastDisplayTrackKey = currentTrackKey;
             }
-            else if (!useSmtc && TrackDisplayPolicy.ShouldRefreshCoverForSameTrack(useSmtc, displayChanged, _lastPreviewCoverBytes, immediateCoverBytes))
+            else if (useSmtc
+                ? SmtcCoverRefreshPolicy.ShouldUpdateDisplayedCover(_lastPreviewCoverBytes, immediateCoverBytes)
+                : TrackDisplayPolicy.ShouldRefreshCoverForSameTrack(useSmtc, displayChanged, _lastPreviewCoverBytes, immediateCoverBytes))
             {
                 SetTextIfChanged(CurrentMeta, $"来源：{track.SourceAppId}");
                 SetTextIfChanged(FooterSourceText, CurrentMeta.Text);
@@ -567,11 +583,22 @@ public partial class MainWindow
                 _smtcCoverRefreshCts = null;
             }
 
+            bool hideForPause = OverlayVisibilityPolicy.ShouldHideWhenPlaybackPaused(
+                _activeSettings.HideOverlayWhenPaused, useSmtc, _playbackSession.LatestSnapshot.IsPlaying);
             if (showOverlay || (allowOverlayOnTrackChange && changed))
             {
                 _diagnostic.Info($"Track changed: {track.Name} - {track.Artist} (source={track.SourceAppId})");
                 BoostPolling();
-                await _overlayWindow.ShowTrackAsync(CreateTrackWithCover(track, immediateCoverBytes));
+                if (hideForPause)
+                {
+                    _overlayHiddenByPause = true;
+                    await _overlayWindow.ConcealAsync();
+                    if (!IsCurrentTrackSnapshot(snapshot)) return false;
+                }
+                else
+                {
+                    await _overlayWindow.ShowTrackAsync(CreateTrackWithCover(track, immediateCoverBytes));
+                }
             }
 
             if (SmtcLyricsSyncPolicy.ShouldUseExternalLyrics(_activeSettings.EnableLyrics, useSmtc))
@@ -603,7 +630,7 @@ public partial class MainWindow
             {
                 SchedulePageMetaTextsUpdate();
             }
-            return true;
+            return !showOverlay || !hideForPause;
         }
         catch (Exception ex)
         {
@@ -615,6 +642,8 @@ public partial class MainWindow
 
     private void ResetTrackDisplay()
     {
+        _overlayWindow.ClearTrack();
+        _overlayHiddenByPause = false;
         _nowPlayingViewModel.ResetTrack();
         _nowPlayingViewModel.PositionSeconds = 0;
         _nowPlayingViewModel.DurationSeconds = 0;
@@ -801,13 +830,6 @@ public partial class MainWindow
 
     private void SetStatusIfChanged(string message, bool isError)
     {
-        if (string.Equals(_lastStatusText, message, StringComparison.Ordinal) && _lastStatusIsError == isError)
-        {
-            return;
-        }
-
-        _lastStatusText = message;
-        _lastStatusIsError = isError;
         SetStatus(message, isError);
     }
 
@@ -882,12 +904,13 @@ public partial class MainWindow
 
     private void SetStatus(string text, bool isError = false)
     {
-        if (string.Equals(_lastStatusText, text, StringComparison.Ordinal))
+        if (string.Equals(_lastStatusText, text, StringComparison.Ordinal) && _lastStatusIsError == isError)
         {
             return;
         }
 
         _lastStatusText = text;
+        _lastStatusIsError = isError;
         StatusText.Text = text;
         if (isError)
         {

@@ -57,6 +57,19 @@ public sealed class LyricsService : IDisposable
         }
     }
 
+    internal bool ShouldRetryCurrentLyrics
+    {
+        get
+        {
+            lock (_cacheGate)
+            {
+                return !string.IsNullOrEmpty(_lastLyricsKey) && _inFlightKey == null &&
+                    _cachedLyrics is not { Count: > 0 } &&
+                    _nowProvider() - _lastFetchAttemptAtMs >= RetryAfterMissMs;
+            }
+        }
+    }
+
     public LyricsService(DiagnosticService diagnostic, HttpClient? httpClient = null)
     {
         _httpClient = httpClient ?? AppHttpClientProvider.CreateClient(TimeSpan.FromSeconds(3));

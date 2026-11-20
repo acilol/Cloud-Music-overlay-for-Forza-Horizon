@@ -10,6 +10,32 @@ namespace HorizonRadioOverlay.Tests;
 
 public sealed class OverlayRenderingTests
 {
+    [Fact]
+    public Task Clearing_during_cover_animation_cancels_the_old_request_and_allows_next_song() => RunSta(async () =>
+    {
+        var window = new OverlayWindow { Opacity = 0 };
+        try
+        {
+            window.ApplySettings(new OverlaySettings { EnableCoverWingEffect = true, AlwaysShowOverlay = true });
+            await window.ShowTrackAsync(new TrackInfo { Name = "A", Artist = "Test", CoverBytes = Cover(255, 0, 0) });
+            await Until(() => window.IsContentVisible);
+            var root = (Grid)window.FindName("OverlayRoot");
+            root.BeginAnimation(UIElement.OpacityProperty, null);
+            root.Opacity = 1;
+            var centerBrush = Field<ImageBrush>(window, "_coverFlowCenterBrush");
+            await window.ShowTrackAsync(new TrackInfo { Name = "B", Artist = "Test", CoverBytes = Cover(0, 0, 255) });
+            await Until(() => centerBrush.HasAnimatedProperties);
+            window.ClearTrack();
+            await Task.Delay(400);
+            Assert.False(window.IsContentVisible);
+            Assert.Empty(((TextBlock)window.FindName("TitleText")).Text);
+            await window.ShowTrackAsync(new TrackInfo { Name = "C", Artist = "Test", CoverBytes = Cover(0, 255, 0) });
+            await Until(() => window.IsContentVisible);
+            Assert.Equal("C", ((TextBlock)window.FindName("TitleText")).Text);
+        }
+        finally { window.Close(); }
+    });
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

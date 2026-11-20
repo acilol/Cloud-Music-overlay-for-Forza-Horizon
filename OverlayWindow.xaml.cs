@@ -856,8 +856,30 @@ public partial class OverlayWindow : Window
         Hide();
     }
 
+    public void ClearTrack()
+    {
+        _animQueue.CancelPending();
+        _hideCts?.Cancel();
+        StopTopmostRefresh();
+        OverlayRoot.BeginAnimation(UIElement.OpacityProperty, null);
+        OverlayRoot.Opacity = 0;
+        _isContentVisible = false;
+        Hide();
+        TitleText.Text = string.Empty;
+        ArtistText.Text = string.Empty;
+        CoverImage.Source = null;
+        _displayedTitle = string.Empty;
+        _displayedArtist = string.Empty;
+        _displayedCoverBytes = null;
+        _coverFlowHistory.Clear();
+        CoverFlowViewport.Children.Clear();
+        _coverFlowCenterBrush = null;
+        SetLyrics(null);
+    }
+
     public async Task ConcealAsync()
     {
+        _animQueue.CancelPending();
         _hideCts?.Cancel();
         _hideCts = new CancellationTokenSource();
 

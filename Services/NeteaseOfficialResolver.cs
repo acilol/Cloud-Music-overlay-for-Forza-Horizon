@@ -62,9 +62,9 @@ public sealed class NeteaseOfficialResolver
             ResolvedSong? byId = await TryResolveByIdAsync(preferredSongId, traceId, "id-http", "netease-id");
             if (byId != null)
             {
-                CacheIfCoverAvailable(trackKey, byId);
                 if (ShouldAcceptPreferredIdResult(title, artist, byId))
                 {
+                    CacheIfCoverAvailable(trackKey, byId);
                     return byId;
                 }
 

@@ -5,6 +5,23 @@ namespace HorizonRadioOverlay.Tests;
 public sealed class LyricsServiceConcurrencyTests
 {
     [Fact]
+    public async Task Retry_waits_for_inflight_request_and_is_cancelled_by_reset()
+    {
+        long now = 10000;
+        TaskCompletionSource<IReadOnlyList<string>> pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var service = new LyricsService((_, _, _, _) => pending.Task,
+            _ => Task.FromResult("{}"), () => now);
+        Task fetch = service.FetchLyricsAsync("Song", "Artist", null, 0);
+        now += 10000;
+        Assert.False(service.ShouldRetryCurrentLyrics);
+        pending.SetResult([]);
+        await fetch;
+        Assert.True(service.ShouldRetryCurrentLyrics);
+        service.Reset();
+        Assert.False(service.ShouldRetryCurrentLyrics);
+    }
+
+    [Fact]
     public async Task Reset_and_refetch_of_same_song_rejects_the_older_response()
     {
         TaskCompletionSource<string> oldPayload = new(TaskCreationOptions.RunContinuationsAsynchronously);
