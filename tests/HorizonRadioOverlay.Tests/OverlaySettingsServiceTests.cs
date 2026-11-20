@@ -228,6 +228,10 @@ public sealed class OverlaySettingsServiceTests
             // 验证自动修复了主文件
             string repairedJson = File.ReadAllText(settingsPath);
             Assert.Contains("#AABBCC", repairedJson);
+
+            Assert.Contains("#AABBCC", File.ReadAllText(service.BackupFilePath));
+            File.WriteAllText(settingsPath, "{ corrupted again");
+            Assert.Equal("#AABBCC", service.Load().TitleColor);
         }
         finally
         {
@@ -235,6 +239,28 @@ public sealed class OverlaySettingsServiceTests
             {
                 Directory.Delete(tempDir, recursive: true);
             }
+        }
+    }
+
+    [Fact]
+    public void Save_preserves_primary_and_cleans_temp_file_when_replacement_is_blocked()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"HRO_Test_{Guid.NewGuid():N}");
+        string path = Path.Combine(directory, "settings.json");
+        try
+        {
+            OverlaySettingsService service = new(path);
+            service.Save(new OverlaySettings { Scale = 1.5 });
+            string original = File.ReadAllText(path);
+            using FileStream locked = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            Exception? error = Record.Exception(() => service.Save(new OverlaySettings { Scale = 1.2 }));
+            Assert.True(error is IOException or UnauthorizedAccessException, error?.ToString());
+            Assert.Equal(original, File.ReadAllText(path));
+            Assert.Empty(Directory.GetFiles(directory, "*.tmp.*"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 

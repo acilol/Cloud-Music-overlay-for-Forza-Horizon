@@ -35,7 +35,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _pollCts;
     private Task? _pollTask;
     private readonly SemaphoreSlim _pollWakeSignal = new(0, 1);
-    private readonly object _lyricGate = new();
     private volatile bool _isMainWindowVisible = true;
     private volatile bool _isOverlayVisible;
     private PlaybackDataHealth? _lastReportedHealth;
@@ -64,7 +63,7 @@ public partial class MainWindow : Window
     private bool _lastStatusIsError;
     private byte[]? _lastPreviewCoverBytes;
     private CancellationTokenSource? _smtcCoverRefreshCts;
-    private double _songDetectedTime;
+    private long _lyricsContextVersion;
     private long _pollBoostUntil;
     private long _lastConsumedTrackVersion;
     private long _lastConsumedTimelineVersion;
@@ -262,14 +261,7 @@ public partial class MainWindow : Window
         _placementSaveTimer.Tick += (_, _) =>
         {
             _placementSaveTimer.Stop();
-            try
-            {
-                _overlaySettingsService.Save(_activeSettings);
-            }
-            catch (Exception ex)
-            {
-                SetStatus($"状态：悬浮窗位置保存失败。{ex.Message}", true);
-            }
+            TrySaveActiveSettings();
         };
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged += MainWindow_DisplaySettingsChanged;
         _themeSettingsViewModel = themeSettingsViewModel;
@@ -360,15 +352,12 @@ public partial class MainWindow : Window
         _lifecycle.Register("TrayIcon",
             onDispose: () => _trayIcon?.Dispose());
 
-        _lifecycle.Register("Settings",
-            onDispose: () =>
-            {
-                try { _overlaySettingsService.Save(_activeSettings); } catch { }
-            });
-
         _lifecycle.Register("Diagnostic",
             onStart: () => _diagnostic.Enabled = _activeSettings.DiagnosticMode,
             onDispose: () => _diagnostic.Dispose());
+
+        _lifecycle.Register("Settings",
+            onDispose: () => TrySaveActiveSettings());
 
         _lifecycle.Register("LogWatcher",
             onDispose: () =>

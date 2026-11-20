@@ -75,7 +75,7 @@ public sealed class OverlaySettingsService
                         // 自动修复被损坏的主文件
                         try
                         {
-                            Save(recovered);
+                            Save(recovered, createBackup: false);
                         }
                         catch
                         {
@@ -93,7 +93,9 @@ public sealed class OverlaySettingsService
         return new OverlaySettings();
     }
 
-    public void Save(OverlaySettings settings)
+    public void Save(OverlaySettings settings) => Save(settings, createBackup: true);
+
+    private void Save(OverlaySettings settings, bool createBackup)
     {
         OverlaySettings normalized = Normalize(settings);
         normalized.SchemaVersion = OverlaySettings.CurrentVersion;
@@ -118,24 +120,18 @@ public sealed class OverlaySettingsService
                 stream.Flush(flushToDisk: true);
             }
 
-            // 2. 若已有主文件，先快照备份至 .bak
-            if (File.Exists(_settingsFilePath))
+            if (createBackup && File.Exists(_settingsFilePath))
             {
-                try
-                {
-                    File.Copy(_settingsFilePath, _backupFilePath, overwrite: true);
-                }
-                catch
-                {
-                }
+                File.Replace(tempFilePath, _settingsFilePath, _backupFilePath);
             }
-
-            // 3. 原子重命名覆盖（Windows NTFS/ReFS 原子替换）
-            File.Move(tempFilePath, _settingsFilePath, overwrite: true);
+            else
+            {
+                File.Move(tempFilePath, _settingsFilePath, overwrite: true);
+            }
         }
         finally
         {
-            // 4. 清理残留临时文件
+            // 清理残留临时文件
             if (File.Exists(tempFilePath))
             {
                 try

@@ -273,11 +273,10 @@ public partial class MainWindow
 
     private void MainWindow_Closed(object? sender, EventArgs e)
     {
+        _lyricsContextVersion++;
+        _lyricsService.Reset();
+        _smtcCoverRefreshCts?.Cancel();
         _pageMetaUpdateTimer.Stop();
-        if (_placementSaveTimer.IsEnabled)
-        {
-            try { _overlaySettingsService.Save(_activeSettings); } catch { }
-        }
         _placementSaveTimer.Stop();
         Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= MainWindow_DisplaySettingsChanged;
         _lifecycle.Dispose();

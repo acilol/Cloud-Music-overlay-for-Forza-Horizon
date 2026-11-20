@@ -55,9 +55,7 @@ public partial class MainWindow
                 _placementSaveTimer.Stop();
                 ApplyOverlaySettingsFromControls();
                 _diagnostic.Enabled = _activeSettings.DiagnosticMode;
-                _overlaySettingsService.Save(_activeSettings);
-                _remoteControlService.ApplySettings(_activeSettings);
-                UpdateRemoteControlPage();
+                if (!TrySaveActiveSettings()) return;
                 _ = ApplyPauseOverlayVisibilityRuleAsync();
             };
             _floatingSettingsViewModel.PlacementChanged += () =>
@@ -70,23 +68,13 @@ public partial class MainWindow
                 if (_isInitializingOverlayControls) return;
                 ApplyOverlaySettingsFromControls();
                 _floatingSettingsViewModel.UpdateCapabilities(_playbackCoordinator);
-                _nowPlayingViewModel.ResetTrack();
-                _smtcCoverRefreshCts?.Cancel();
-                _smtcCoverRefreshCts = null;
-                lock (_lyricGate)
-                {
-                    _lyricsService.Reset();
-                    _lastSmtcPlaybackPositionSeconds = null;
-                    _smtcLyricTimingController.Reset();
-                    _neteaseLyricTimingController.Reset();
-                }
-                _lastTrackKey = string.Empty;
-                _lastDisplayTrackKey = string.Empty;
-                _lastPreviewCoverBytes = null;
-                SetCover(null);
-                _overlayWindow.SetLyrics(null);
+                ResetTrackDisplay();
+                string sourceId = _activeSettings.TrackSource;
                 await RefreshCurrentTrackAsync(showOverlay: false, allowOverlayOnTrackChange: false);
-                SetStatus("状态：数据来源已切换（点击“保存”可持久化）。", false);
+                if (string.Equals(sourceId, _activeSettings.TrackSource, StringComparison.OrdinalIgnoreCase))
+                {
+                    SetStatus("状态：数据来源已切换（点击“保存”可持久化）。", false);
+                }
             };
             _floatingSettingsViewModel.ToggleDragRepositionRequested += ToggleOverlayDragReposition;
             _overlayWindow.PositionDragged += (leftPercent, topPercent, monitorDeviceName) =>
@@ -132,13 +120,18 @@ public partial class MainWindow
             {
                 if (_isInitializingOverlayControls) return;
                 ApplyOverlaySettingsFromControls();
-                _overlaySettingsService.Save(_activeSettings);
+                if (!TrySaveActiveSettings()) return;
                 SetStatus(_remoteControlService.IsRunning ? "状态：手机遥控已应用。" : $"状态：{_remoteControlService.StatusMessage}", !_remoteControlService.IsRunning && _activeSettings.EnableRemoteControl);
             };
             _remoteControlViewModel.RequestResetToken += () =>
             {
+                string previousToken = _activeSettings.RemoteControlToken;
                 _activeSettings.RemoteControlToken = RemoteControlService.GenerateToken();
-                _overlaySettingsService.Save(_activeSettings);
+                if (!TrySaveActiveSettings())
+                {
+                    _activeSettings.RemoteControlToken = previousToken;
+                    return;
+                }
                 _remoteControlService.ApplySettings(_activeSettings);
                 UpdateRemoteControlPage();
                 SetStatus("状态：手机遥控连接令牌已重置。", false);
